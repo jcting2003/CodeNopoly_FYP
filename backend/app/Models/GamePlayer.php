@@ -14,6 +14,7 @@ class GamePlayer extends Model
         'user_id',
         'credits',
         'total_credits',
+        'position',
         'joined_at',
     ];
 
