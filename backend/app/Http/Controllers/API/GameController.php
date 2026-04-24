@@ -3,6 +3,12 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Events\DiceRolled;
+use App\Events\GameEnded;
+use App\Events\GameStarted;
+use App\Events\LeaderboardUpdated;
+use App\Events\LobbyPlayersUpdated;
+use App\Events\TurnChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use Illuminate\Http\Request;
@@ -26,6 +32,11 @@ class GameController extends Controller
             'total_credits' => 100,
             'joined_at' => now(),
         ]);
+
+        event(new LobbyPlayersUpdated(
+            $game->id,
+            $this->buildLobbyPlayersPayload($game->id)
+        ));
 
         return response()->json([
             'message' => 'Game created successfully',
@@ -64,6 +75,11 @@ class GameController extends Controller
             'total_credits' => 100,
             'joined_at' => now(),
         ]);
+
+        event(new LobbyPlayersUpdated(
+            $game->id,
+            $this->buildLobbyPlayersPayload($game->id)
+        ));
 
         return response()->json([
             'message' => 'Joined game successfully',
@@ -112,7 +128,8 @@ class GameController extends Controller
             ], 400);
         }
 
-        $firstPlayer = GamePlayer::where('game_id', $game->id)
+        $firstPlayer = GamePlayer::with('user')
+            ->where('game_id', $game->id)
             ->orderBy('joined_at')
             ->first();
 
@@ -129,10 +146,71 @@ class GameController extends Controller
         $game->last_dice_roll = null;
         $game->save();
 
+        event(new GameStarted($game));
+
+        event(new TurnChanged(
+            $game->id,
+            $game->turn_number,
+            $game->current_turn_user_id,
+            $firstPlayer->user?->name
+        ));
+
+        event(new LeaderboardUpdated(
+            $game->id,
+            $this->buildLeaderboardPayload($game->id)
+        ));
+
         return response()->json([
             'message' => 'Game started successfully',
             'game' => $game,
             'current_turn_user_id' => $game->current_turn_user_id,
+        ]);
+    }
+
+    public function endGame(Request $request, $id)
+    {
+        $game = Game::find($id);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->host_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Only the host can end the game',
+            ], 403);
+        }
+
+        if ($game->status === 'ended') {
+            return response()->json([
+                'message' => 'Game is already ended',
+            ], 400);
+        }
+
+        $game->status = 'ended';
+        $game->ended_at = now();
+        $game->save();
+
+        event(new GameEnded(
+            $game->id,
+            $game->status
+        ));
+
+        event(new LeaderboardUpdated(
+            $game->id,
+            $this->buildLeaderboardPayload($game->id)
+        ));
+
+        return response()->json([
+            'message' => 'Game ended successfully',
+            'game' => [
+                'id' => $game->id,
+                'game_code' => $game->game_code,
+                'status' => $game->status,
+                'ended_at' => $game->ended_at,
+            ],
         ]);
     }
 
@@ -180,6 +258,13 @@ class GameController extends Controller
             ], 403);
         }
 
+        // Prevent rolling more than once in the same turn
+        if ($game->last_dice_roll !== null) {
+            return response()->json([
+                'message' => 'You have already rolled this turn',
+            ], 400);
+        }
+
         $gamePlayer = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $user->id)
             ->first();
@@ -190,7 +275,9 @@ class GameController extends Controller
             ], 404);
         }
 
-        $diceRoll = random_int(1, 6);
+        $diceOne = random_int(1, 6);
+        $diceTwo = random_int(1, 6);
+        $diceRoll = $diceOne + $diceTwo;
 
         $gamePlayer->position = ($gamePlayer->position + $diceRoll) % 40;
         $gamePlayer->save();
@@ -198,9 +285,26 @@ class GameController extends Controller
         $game->last_dice_roll = $diceRoll;
         $game->save();
 
+        event(new DiceRolled(
+            $game->id,
+            $user->id,
+            $user->name,
+            $diceRoll,
+            $gamePlayer->position
+        ));
+
+        event(new LeaderboardUpdated(
+            $game->id,
+            $this->buildLeaderboardPayload($game->id)
+        ));
+
         return response()->json([
             'message' => 'Dice rolled successfully',
+            'dice_one' => $diceOne,
+            'dice_two' => $diceTwo,
             'dice_roll' => $diceRoll,
+            'last_dice_roll' => $diceRoll,
+            'current_position' => $gamePlayer->position,
             'new_position' => $gamePlayer->position,
             'user_id' => $user->id,
         ]);
@@ -230,7 +334,8 @@ class GameController extends Controller
             ], 403);
         }
 
-        $players = GamePlayer::where('game_id', $game->id)
+        $players = GamePlayer::with('user')
+            ->where('game_id', $game->id)
             ->orderBy('joined_at')
             ->get();
 
@@ -258,11 +363,55 @@ class GameController extends Controller
         $game->last_dice_roll = null;
         $game->save();
 
+        event(new TurnChanged(
+            $game->id,
+            $game->turn_number,
+            $game->current_turn_user_id,
+            $nextPlayer->user?->name
+        ));
+
+        event(new LeaderboardUpdated(
+            $game->id,
+            $this->buildLeaderboardPayload($game->id)
+        ));
+
         return response()->json([
             'message' => 'Turn ended successfully',
             'next_turn_user_id' => $nextPlayer->user_id,
             'next_turn_user_name' => $nextPlayer->user?->name,
             'turn_number' => $game->turn_number,
+        ]);
+    }
+
+    public function show(Request $request, $id)
+    {
+        $game = Game::find($id);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        $isPlayerInGame = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isPlayerInGame) {
+            return response()->json([
+                'message' => 'You are not part of this game',
+            ], 403);
+        }
+
+        return response()->json([
+            'game' => [
+                'id' => $game->id,
+                'host_id' => $game->host_id,
+                'game_code' => $game->game_code,
+                'status' => $game->status,
+                'started_at' => $game->started_at,
+                'ended_at' => $game->ended_at,
+            ],
         ]);
     }
 
@@ -300,5 +449,27 @@ class GameController extends Controller
             'user_id' => $user->id,
             'games' => $games,
         ]);
+    }
+
+    protected function buildLobbyPlayersPayload(int $gameId): array
+    {
+        $game = Game::with('players.user')->find($gameId);
+
+        if (! $game) {
+            return [];
+        }
+
+        return $game->players
+            ->sortBy('joined_at')
+            ->values()
+            ->map(function ($player) use ($game) {
+                return [
+                    'id' => $player->user?->id ?? $player->user_id,
+                    'name' => $player->user?->name ?? ('Player ' . $player->user_id),
+                    'status' => 'CONNECTED',
+                    'is_host' => $player->user_id === $game->host_id,
+                ];
+            })
+            ->toArray();
     }
 }

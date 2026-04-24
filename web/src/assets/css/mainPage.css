@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f8fafc;
+  --color-on-background: #0f172a;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f1f5f9;
+  --color-surface-container: #e2e8f0;
+  --color-surface-container-high: #d7e2ee;
+  --color-surface-container-highest: #cbd5e1;
+  --color-surface-variant: #dbeafe;
+  --color-on-surface: #1e293b;
+  --color-on-surface-variant: #475569;
+  --color-primary: #2563eb;
+  --color-primary-dim: #1d4ed8;
+  --color-on-primary: #eff6ff;
+  --color-primary-container: #dbeafe;
+  --color-on-primary-container: #1e3a8a;
+  --color-secondary: #0f766e;
+  --color-secondary-dim: #0f5f59;
+  --color-on-secondary: #f0fdfa;
+  --color-secondary-fixed: #99f6e4;
+  --color-secondary-container: #ccfbf1;
+  --color-on-secondary-container: #134e4a;
+  --color-tertiary: #f59e0b;
+  --color-tertiary-container: #fef3c7;
+  --color-tertiary-fixed-dim: #fbbf24;
+  --color-on-tertiary-container: #92400e;
+  --color-inverse-surface: #0f172a;
+  --color-outline: #64748b;
+  --color-outline-variant: #94a3b8;
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Space Grotesk", sans-serif;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.filled-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--color-background);
+  color: var(--color-on-background);
+}
+
+h1,
+h2,
+h3,
+.font-headline {
+  font-family: 'Space Grotesk', sans-serif;
+}
