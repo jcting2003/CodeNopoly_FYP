@@ -9,6 +9,10 @@ class GameProperty extends Model
 {
     use HasFactory;
 
+    protected $table = 'game_properties';
+    public $incrementing = false;
+    protected $keyType = 'int';
+
     protected $fillable = [
         'game_id',
         'property_id',
@@ -32,5 +36,4 @@ class GameProperty extends Model
     {
         return $this->belongsTo(User::class, 'owner_user_id');
     }
-
 }

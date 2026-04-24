@@ -24,12 +24,9 @@ class AuthController extends Controller
             'password' => Hash::make($fields['password']),
         ]);
 
-        $token = $user->createToken('api-token')->plainTextToken;
-
         return response()->json([
             'message' => 'Registration successful',
             'user' => $user,
-            'token' => $token,
         ], 201);
     }
 
@@ -46,20 +43,20 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = User::where('email', $fields['email'])->first();
-
-        $token = $user->createToken('api-token')->plainTextToken;
+        $request->session()->regenerate();
 
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user,
-            'token' => $token,
+            'user' => Auth::user(),
         ]);
     }
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json([
             'message' => 'Logged out successfully',

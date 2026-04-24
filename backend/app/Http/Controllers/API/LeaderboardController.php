@@ -33,6 +33,7 @@ class LeaderboardController extends Controller
                 'email' => $player->user ? $player->user->email : null,
                 'credits' => $player->credits,
                 'total_credits' => $player->total_credits,
+                'position' => $player->position,
             ];
         });
 

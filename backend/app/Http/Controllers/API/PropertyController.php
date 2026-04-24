@@ -32,18 +32,24 @@ class PropertyController extends Controller
 
         $property = Property::find($fields['property_id']);
 
-        $gameProperty = GameProperty::firstOrCreate(
-            [
+        $gameProperty = GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->first();
+
+        if (! $gameProperty) {
+            GameProperty::create([
                 'game_id' => $fields['game_id'],
                 'property_id' => $fields['property_id'],
-            ],
-            [
                 'owner_user_id' => null,
                 'houses' => 0,
                 'has_hotel' => false,
                 'purchased_at' => null,
-            ]
-        );
+            ]);
+
+            $gameProperty = GameProperty::where('game_id', $fields['game_id'])
+                ->where('property_id', $fields['property_id'])
+                ->first();
+        }
 
         if ($gameProperty->owner_user_id) {
             return response()->json([
@@ -60,9 +66,17 @@ class PropertyController extends Controller
         $gamePlayer->credits -= $property->cost;
         $gamePlayer->save();
 
-        $gameProperty->owner_user_id = $user->id;
-        $gameProperty->purchased_at = now();
-        $gameProperty->save();
+        GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->update([
+                'owner_user_id' => $user->id,
+                'purchased_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $gameProperty = GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->first();
 
         return response()->json([
             'message' => 'Property purchased successfully',
@@ -126,11 +140,50 @@ class PropertyController extends Controller
             ], 400);
         }
 
+        $game = Game::find($fields['game_id']);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        if (
+            $gamePlayer->last_house_bought_turn !== null &&
+            (int) $gamePlayer->last_house_bought_turn === (int) $game->turn_number
+        ) {
+            return response()->json([
+                'message' => 'You can only buy one house per turn',
+            ], 422);
+        }
+
         $gamePlayer->credits -= $property->house_cost;
+        $gamePlayer->last_house_bought_turn = $game->turn_number;
+        $gamePlayer->last_house_bought_property_id = $property->id;
         $gamePlayer->save();
 
-        $gameProperty->houses += 1;
-        $gameProperty->save();
+        GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->update([
+                'houses' => $gameProperty->houses + 1,
+                'updated_at' => now(),
+            ]);
+
+        $gameProperty = GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->first();
 
         return response()->json([
             'message' => 'House purchased successfully',
@@ -194,9 +247,17 @@ class PropertyController extends Controller
         $gamePlayer->credits -= $property->hotel_cost;
         $gamePlayer->save();
 
-        $gameProperty->houses = 0;
-        $gameProperty->has_hotel = true;
-        $gameProperty->save();
+        GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->update([
+                'houses' => 0,
+                'has_hotel' => true,
+                'updated_at' => now(),
+            ]);
+
+        $gameProperty = GameProperty::where('game_id', $fields['game_id'])
+            ->where('property_id', $fields['property_id'])
+            ->first();
 
         return response()->json([
             'message' => 'Hotel purchased successfully',
@@ -277,7 +338,40 @@ class PropertyController extends Controller
             ], 400);
         }
 
+        $game = Game::find($fields['game_id']);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        if (
+            $tenant->last_rent_paid_turn !== null &&
+            (int) $tenant->last_rent_paid_turn === (int) $game->turn_number &&
+            $tenant->last_rent_paid_property_id !== null &&
+            (int) $tenant->last_rent_paid_property_id === (int) $property->id
+        ) {
+            return response()->json([
+                'message' => 'Rent has already been paid for this property this turn',
+            ], 422);
+        }
+
         $tenant->credits -= $rentAmount;
+        $tenant->last_rent_paid_turn = $game->turn_number;
+        $tenant->last_rent_paid_property_id = $property->id;
         $tenant->save();
 
         $owner->credits += $rentAmount;
@@ -312,35 +406,39 @@ class PropertyController extends Controller
             ], 404);
         }
 
-        $properties = \App\Models\GameProperty::with(['property.tile', 'owner'])
-            ->where('game_id', $id)
+        $properties = Property::with('tile')
             ->get()
-            ->map(function ($gameProperty) {
+            ->map(function ($property) use ($id) {
+                $gameProperty = GameProperty::with('owner')
+                    ->where('game_id', $id)
+                    ->where('property_id', $property->id)
+                    ->first();
+
                 return [
-                    'game_property_id' => $gameProperty->id,
-                    'property_id' => $gameProperty->property_id,
-                    'tile_id' => $gameProperty->property ? $gameProperty->property->tile_id : null,
-                    'tile_name' => $gameProperty->property && $gameProperty->property->tile
-                        ? $gameProperty->property->tile->tile_name
-                        : null,
-                    'property_name' => $gameProperty->property ? $gameProperty->property->property_name : null,
-                    'color_group' => $gameProperty->property ? $gameProperty->property->color_group : null,
-                    'cost' => $gameProperty->property ? $gameProperty->property->cost : null,
-                    'house_cost' => $gameProperty->property ? $gameProperty->property->house_cost : null,
-                    'hotel_cost' => $gameProperty->property ? $gameProperty->property->hotel_cost : null,
-                    'rent' => $gameProperty->property ? $gameProperty->property->rent : null,
-                    'rent_1_house' => $gameProperty->property ? $gameProperty->property->rent_1_house : null,
-                    'rent_2_houses' => $gameProperty->property ? $gameProperty->property->rent_2_houses : null,
-                    'rent_3_houses' => $gameProperty->property ? $gameProperty->property->rent_3_houses : null,
-                    'rent_4_houses' => $gameProperty->property ? $gameProperty->property->rent_4_houses : null,
-                    'rent_hotel' => $gameProperty->property ? $gameProperty->property->rent_hotel : null,
-                    'owner_user_id' => $gameProperty->owner_user_id,
-                    'owner_name' => $gameProperty->owner ? $gameProperty->owner->name : null,
-                    'houses' => $gameProperty->houses,
-                    'has_hotel' => $gameProperty->has_hotel,
-                    'purchased_at' => $gameProperty->purchased_at,
+                    'game_property_id' => $gameProperty ? ($gameProperty->game_id . '-' . $gameProperty->property_id) : null,
+                    'property_id' => $property->id,
+                    'tile_id' => $property->tile_id,
+                    'tile_name' => $property->tile ? $property->tile->tile_name : null,
+                    'tile_number' => $property->tile ? $property->tile->tile_number : null,
+                    'property_name' => $property->property_name,
+                    'color_group' => $property->color_group,
+                    'cost' => $property->cost,
+                    'house_cost' => $property->house_cost,
+                    'hotel_cost' => $property->hotel_cost,
+                    'rent' => $property->rent,
+                    'rent_1_house' => $property->rent_1_house,
+                    'rent_2_houses' => $property->rent_2_houses,
+                    'rent_3_houses' => $property->rent_3_houses,
+                    'rent_4_houses' => $property->rent_4_houses,
+                    'rent_hotel' => $property->rent_hotel,
+                    'owner_user_id' => $gameProperty ? $gameProperty->owner_user_id : null,
+                    'owner_name' => $gameProperty && $gameProperty->owner ? $gameProperty->owner->name : null,
+                    'houses' => $gameProperty ? $gameProperty->houses : 0,
+                    'hotel' => $gameProperty ? (bool) $gameProperty->has_hotel : false,
+                    'purchased_at' => $gameProperty ? $gameProperty->purchased_at : null,
                 ];
-            });
+            })
+            ->values();
 
         return response()->json([
             'game_id' => $game->id,
