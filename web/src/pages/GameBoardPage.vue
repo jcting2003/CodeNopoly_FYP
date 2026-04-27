@@ -63,7 +63,7 @@
                     class="font-headline font-bold leading-tight"
                     :class="player.isCurrentTurn ? 'text-primary' : 'text-slate-900'"
                   >
-                    {{ player.name }}
+                    {{ player.user_name }}
                   </p>
 
                   <p class="text-[11px] text-slate-500 mt-1">
@@ -286,6 +286,31 @@
               </div>
             </div>
 
+            <div
+              v-if="isCardTile"
+              class="p-6 bg-white/60 backdrop-blur-xl rounded-2xl border-2 border-white/50 mb-6 space-y-4"
+            >
+              <p class="text-on-tertiary-container font-medium">
+                Card detected tile. Scan the physical Chance / Community Chest card.
+              </p>
+
+              <input
+                v-model="cardQrInputValue"
+                type="text"
+                placeholder="Enter card QR value for testing (e.g. CC_001)"
+                class="w-full px-4 py-3 rounded-xl border border-white/50 bg-white text-slate-800 outline-none"
+              />
+
+              <button
+                type="button"
+                @click="handleScanCard"
+                :disabled="scanningCard || !isCurrentUserTurn || !hasRolledThisTurn"
+                class="w-full px-4 py-3 rounded-xl bg-primary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {{ scanningCard ? 'Scanning Card...' : 'Scan Card (Test)' }}
+              </button>
+            </div>
+
             <div class="bg-white p-4 rounded-2xl flex items-center gap-4">
               <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-slate-600">contactless</span>
@@ -423,6 +448,7 @@
           </button>
 
           <button
+            v-if="isCurrentUserTurn"
             type="button"
             @click="handleEndTurn"
             :disabled="endingTurn"
@@ -574,14 +600,24 @@
             Reward: <span class="font-bold text-tertiary">{{ activeQuestion.credits }} Cr</span>
           </div>
 
-          <button
-            type="button"
-            @click="handleSubmitAnswer"
-            :disabled="submittingAnswer || !selectedAnswer"
-            class="px-6 py-3 rounded-full bg-primary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ submittingAnswer ? 'Submitting...' : 'Submit Answer' }}
-          </button>
+        <button
+          v-if="!answerResult"
+          type="button"
+          @click="handleSubmitAnswer"
+          :disabled="submittingAnswer || !selectedAnswer"
+          class="px-6 py-3 rounded-full bg-primary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ submittingAnswer ? 'Submitting...' : 'Submit Answer' }}
+        </button>
+
+        <button
+          v-else
+          type="button"
+          @click="closeQuestionModal"
+          class="px-6 py-3 rounded-full bg-primary text-white font-bold"
+        >
+          Continue
+        </button>
         </div>
 
         <div v-if="answerResult" class="mt-6 rounded-2xl p-4 border">
@@ -594,6 +630,60 @@
           <p class="text-sm text-slate-600">
             Current credits: {{ answerResult.current_credits }}
           </p>
+        </div>
+      </div>
+    </div>
+
+        <div
+      v-if="cardResultModalOpen && cardResult"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+    >
+      <div class="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl">
+        <div class="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <p class="text-sm font-bold text-primary uppercase tracking-widest">
+              {{ cardResult.card.card_type === 'chance' ? 'Chance Card' : 'Community Chest Card' }}
+            </p>
+            <h2 class="text-2xl font-headline font-bold text-slate-900 mt-2">
+              {{ cardResult.card.title }}
+            </h2>
+            <p class="text-sm text-slate-500 mt-2">
+              {{ cardResult.card.description }}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            @click="closeCardResultModal"
+            class="text-slate-500 hover:text-slate-900"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="rounded-2xl border p-5 bg-surface-container-lowest">
+          <p class="font-bold text-primary mb-2">
+            {{ cardResult.result.message }}
+          </p>
+          <p class="text-sm text-slate-600">
+            Current credits: {{ cardResult.result.current_credits }}
+          </p>
+          <p class="text-sm text-slate-600">
+            Total credits: {{ cardResult.result.total_credits }}
+          </p>
+          <p class="text-sm text-slate-600">
+            New position: {{ cardResult.result.new_position }}
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+          <button
+            type="button"
+            @click="closeCardResultModal"
+            class="px-6 py-3 rounded-full bg-primary text-white font-bold"
+          >
+            Continue
+          </button>
         </div>
       </div>
     </div>
@@ -613,6 +703,7 @@ import Navbar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import echo from '@/lib/echo'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from 'vue-toastification'
 
 type LeaderboardPlayer = {
   rank: number
@@ -621,6 +712,7 @@ type LeaderboardPlayer = {
   credits: number
   total_credits: number
   position?: number
+  last_property_bought_turn?: number | null
 }
 
 type LeaderboardResponse = {
@@ -663,7 +755,7 @@ type RollDiceResponse = {
 
 type RankedPlayer = {
   id: number
-  name: string
+  user_name: string
   credits: number
   totalCredits: number
   position: number | null
@@ -683,15 +775,6 @@ type EndTurnResponse = {
   status?: string
 }
 
-type EndGameResponse = {
-  message?: string
-  game?: {
-    id: number
-    game_code?: string
-    status?: string
-    ended_at?: string | null
-  }
-}
 
 type TurnChangedEvent = {
   game_id: number
@@ -828,11 +911,43 @@ type BuyHotelResponse = {
   total_credits: number
 }
 
+type ScanCardResponse = {
+  message: string
+  card: {
+    id: number
+    card_code: string
+    card_type: 'community_chest' | 'chance'
+    title: string
+    description: string
+    effect_type: string
+    effect_value: number | null
+    target_tile_number: number | null
+  }
+  result: {
+    message: string
+    current_credits: number
+    total_credits: number
+    new_position: number
+  }
+  
+}
+type TileByNumberResponse = {
+  tile: {
+    id: number
+    tile_number: number
+    tile_name: string
+    tile_type: string | null
+    nfc_value: string | null
+    difficulty: string | null
+  }
+}
+
 const endingGame = ref(false)
 
 const route = useRoute()
 const router = useRouter()
 const gameId = Number(route.params.id)
+const toast = useToast()
 
 const loadingLeaderboard = ref(false)
 const loadingTurn = ref(false)
@@ -851,6 +966,7 @@ const gameStatus = ref('')
 const hostId = ref<number | null>(null)
 const currentPosition = ref<number | null>(null)
 const currentTile = ref('')
+const currentTileType = ref<string | null>(null)
 const lastDiceRoll = ref<number | null>(null)
 
 const diceOne = ref<number | null>(null)
@@ -873,9 +989,16 @@ const buyingHouse = ref(false)
 const buyingHotel = ref(false)
 const rentPaidThisTurn = ref(false)
 const houseBoughtThisTurn = ref(false)
+const propertyBoughtThisTurn = ref(false)
 
 const scanningTile = ref(false)
 const qrInputValue = ref('')
+
+const scanningCard = ref(false)
+const cardQrInputValue = ref('')
+const cardResultModalOpen = ref(false)
+const cardResult = ref<ScanCardResponse | null>(null)
+
 const questionModalOpen = ref(false)
 const activeTile = ref<ScanTileResponse['tile'] | null>(null)
 const activeQuestion = ref<QuestionData | null>(null)
@@ -885,6 +1008,22 @@ const answerResult = ref<SubmitAnswerResponse | null>(null)
 const difficultyModalOpen = ref(false)
 const availableDifficulties = ref<string[]>([])
 const selectedDifficulty = ref('')
+
+type ErrorResponse = {
+  message?: string
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
+  }
+
+  return fallback
+}
+
+const showError = (error: unknown, fallback: string) => {
+  toast.error(getErrorMessage(error, fallback))
+}
 
 const isCurrentUserTurn = computed(() => {
   return currentTurnUserId.value !== null && currentTurnUserId.value === authStore.user?.id
@@ -913,6 +1052,7 @@ const canBuyCurrentProperty = computed(() => {
   return (
     !!currentProperty.value &&
     isCurrentUserTurn.value &&
+    hasRolledThisTurn.value &&
     currentProperty.value.owner_user_id === null
   )
 })
@@ -921,6 +1061,7 @@ const canPayRentForCurrentProperty = computed(() => {
   return (
     !!currentProperty.value &&
     isCurrentUserTurn.value &&
+    hasRolledThisTurn.value &&
     !rentPaidThisTurn.value &&
     currentProperty.value.owner_user_id !== null &&
     currentProperty.value.owner_user_id !== authStore.user?.id
@@ -931,7 +1072,9 @@ const canBuyHouseForCurrentProperty = computed(() => {
   return (
     !!currentProperty.value &&
     isCurrentUserTurn.value &&
+    hasRolledThisTurn.value &&
     !houseBoughtThisTurn.value &&
+    !propertyBoughtThisTurn.value &&
     currentProperty.value.owner_user_id === authStore.user?.id &&
     !currentProperty.value.hotel &&
     currentProperty.value.houses < 4
@@ -942,10 +1085,15 @@ const canBuyHotelForCurrentProperty = computed(() => {
   return (
     !!currentProperty.value &&
     isCurrentUserTurn.value &&
+    hasRolledThisTurn.value &&
     currentProperty.value.owner_user_id === authStore.user?.id &&
     !currentProperty.value.hotel &&
     currentProperty.value.houses === 4
   )
+})
+
+const isCardTile = computed(() => {
+  return currentTileType.value === 'chance' || currentTileType.value === 'community_chest'
 })
 
 const currentPositionLabel = computed(() => {
@@ -1004,6 +1152,18 @@ const fetchGame = async () => {
   gameName.value = `Game #${foundGame.id}`
 }
 
+const fetchTileByPosition = async (position: number) => {
+  try {
+    const response = await api.get<TileByNumberResponse>(`/api/games/${gameId}/tiles/by-number/${position}`)
+    currentTile.value = response.data.tile.tile_name || ''
+    currentTileType.value = response.data.tile.tile_type || null
+  } catch (error: unknown) {
+    currentTile.value = ''
+    currentTileType.value = null
+    showError(error, 'Failed to load tile details.')
+  }
+}
+
 const applyLeaderboard = (leaderboard: LeaderboardPlayer[]) => {
   const maxCredits =
     leaderboard.length > 0
@@ -1020,7 +1180,7 @@ const applyLeaderboard = (leaderboard: LeaderboardPlayer[]) => {
 
     return {
       id: player.user_id,
-      name: player.user_name,
+      user_name: player.user_name,
       credits: player.credits,
       totalCredits: player.total_credits,
       position: typeof player.position === 'number' ? player.position : null,
@@ -1079,15 +1239,25 @@ const fetchLeaderboard = async () => {
       (player) => player.user_id === authStore.user?.id
     )
 
-    if (currentPlayer && typeof currentPlayer.position === 'number') {
-      currentPosition.value = currentPlayer.position
+    if (currentPlayer) {
+      propertyBoughtThisTurn.value =
+        currentPlayer.last_property_bought_turn !== null &&
+        currentPlayer.last_property_bought_turn !== undefined &&
+        currentPlayer.last_property_bought_turn === turnNumber.value
 
-      const matchedProperty = gameProperties.value.find(
-        (property) => property.tile_number === currentPlayer.position
-      )
+      if (typeof currentPlayer.position === 'number') {
+        currentPosition.value = currentPlayer.position
 
-      if (matchedProperty) {
-        currentTile.value = matchedProperty.tile_name
+        const matchedProperty = gameProperties.value.find(
+          (property) => property.tile_number === currentPlayer.position
+        )
+
+        if (matchedProperty) {
+          currentTile.value = matchedProperty.tile_name
+          currentTileType.value = null
+        } else {
+          await fetchTileByPosition(currentPlayer.position)
+        }
       }
     }
   } finally {
@@ -1113,25 +1283,38 @@ const handleRollDice = async () => {
       lastDiceRoll.value = data.last_dice_roll
     }
 
-    if (typeof data.current_position === 'number') currentPosition.value = data.current_position
+    if (typeof data.current_position === 'number') {
+      currentPosition.value = data.current_position
+
+      const matchedProperty = gameProperties.value.find(
+        (property) => property.tile_number === data.current_position
+      )
+
+      if (matchedProperty) {
+        currentTile.value = matchedProperty.tile_name
+        currentTileType.value = null
+      } else {
+        await fetchTileByPosition(data.current_position)
+      }
+    }
+
     if (typeof data.tile_name === 'string') currentTile.value = data.tile_name
     if (typeof data.current_tile === 'string') currentTile.value = data.current_tile
 
-    console.log('currentPosition', currentPosition.value)
-    console.log('currentTile', currentTile.value)
-    console.log('gameProperties', gameProperties.value)
-    console.log('currentProperty', currentProperty.value)
+    // console.log('currentPosition', currentPosition.value)
+    // console.log('currentTile', currentTile.value)
+    // console.log('gameProperties', gameProperties.value)
+    // console.log('currentProperty', currentProperty.value)
 
     hasRolledThisTurn.value = true
     rentPaidThisTurn.value = false
     houseBoughtThisTurn.value = false
+    propertyBoughtThisTurn.value = false
+
+    toast.success('Dice rolled successfully.')
 
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to roll dice.')
-    } else {
-      console.error('Failed to roll dice.')
-    }
+    showError(error, 'Failed to roll dice.')
   } finally {
     rollingDice.value = false
   }
@@ -1139,7 +1322,7 @@ const handleRollDice = async () => {
 
 const handleScanTile = async () => {
   if (!qrInputValue.value.trim()) {
-    console.error('Please enter a QR value.')
+    toast.warning('Please enter a QR value.')
     return
   }
 
@@ -1160,20 +1343,60 @@ const handleScanTile = async () => {
     difficultyModalOpen.value = true
 
     currentTile.value = response.data.tile.tile_name
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to scan tile.')
-    } else {
-      console.error('Failed to scan tile.')
-    }
+    currentTileType.value = response.data.tile.tile_type || null
+    cardResultModalOpen.value = false
+    cardResult.value = null
+    cardQrInputValue.value = ''
+} catch (error: unknown) {
+  showError(error, 'Failed to scan tile.')
   } finally {
     scanningTile.value = false
+  }
+}
+const handleScanCard = async () => {
+  if (!cardQrInputValue.value.trim()) {
+    toast.warning('Please enter a card QR value.')
+    return
+  }
+
+  try {
+    scanningCard.value = true
+    cardResult.value = null
+
+    const response = await api.post<ScanCardResponse>(`/api/games/${gameId}/scan-card`, {
+      card_code: cardQrInputValue.value.trim(),
+    })
+
+    cardResult.value = response.data
+    cardResultModalOpen.value = true
+
+    if (typeof response.data.result.new_position === 'number') {
+      currentPosition.value = response.data.result.new_position
+
+      const matchedProperty = gameProperties.value.find(
+        (property) => property.tile_number === response.data.result.new_position
+      )
+
+      if (matchedProperty) {
+        currentTile.value = matchedProperty.tile_name
+        currentTileType.value = null
+      } else {
+        await fetchTileByPosition(response.data.result.new_position)
+      }
+    }
+
+    await fetchProperties()
+    await fetchLeaderboard()
+  } catch (error: unknown) {
+    showError(error, 'Failed to scan card.')
+  } finally {
+    scanningCard.value = false
   }
 }
 
 const handleChooseDifficulty = async () => {
   if (!activeTile.value || !selectedDifficulty.value) {
-    console.error('Please choose a difficulty.')
+    toast.warning('Please choose a difficulty.')
     return
   }
 
@@ -1195,24 +1418,24 @@ const handleChooseDifficulty = async () => {
     difficultyModalOpen.value = false
     questionModalOpen.value = true
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to get question.')
-    } else {
-      console.error('Failed to get question.')
-    }
+    showError(error, 'Failed to get question.')
   } finally {
     scanningTile.value = false
   }
 }
 
 const handleSubmitAnswer = async () => {
+  if (answerResult.value) {
+    return
+  }
+
   if (!activeQuestion.value) {
-    console.error('No active question found.')
+    toast.error('No active question found.')
     return
   }
 
   if (!selectedAnswer.value) {
-    console.error('Please select an answer.')
+    toast.warning('Please select an answer.')
     return
   }
 
@@ -1227,15 +1450,23 @@ const handleSubmitAnswer = async () => {
     )
 
     answerResult.value = response.data
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to submit answer.')
+
+    if (response.data.is_correct) {
+      toast.success(`Correct! You earned ${response.data.earned_credits} Cr.`)
     } else {
-      console.error('Failed to submit answer.')
+      toast.info('Answer submitted. No credits earned.')
     }
+  } catch (error: unknown) {
+    showError(error, 'Failed to submit answer.')
   } finally {
     submittingAnswer.value = false
   }
+}
+
+const closeCardResultModal = () => {
+  cardResultModalOpen.value = false
+  cardResult.value = null
+  cardQrInputValue.value = ''
 }
 
 const closeQuestionModal = () => {
@@ -1252,7 +1483,7 @@ const closeQuestionModal = () => {
 
 const handleBuyProperty = async () => {
   if (!currentProperty.value) {
-    console.error('No property available on this tile.')
+   toast.warning('No property available on this tile.')
     return
   }
 
@@ -1264,14 +1495,13 @@ const handleBuyProperty = async () => {
       property_id: currentProperty.value.property_id,
     })
 
+    propertyBoughtThisTurn.value = true
+    toast.success('Property bought successfully.')
+
     await fetchProperties()
     await fetchLeaderboard()
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to buy property.')
-    } else {
-      console.error('Failed to buy property.')
-    }
+    showError(error, 'Failed to buy property.')
   } finally {
     buyingProperty.value = false
   }
@@ -1279,7 +1509,7 @@ const handleBuyProperty = async () => {
 
 const handlePayRent = async () => {
   if (!currentProperty.value) {
-    console.error('No property available on this tile.')
+    toast.warning('No property available on this tile.')
     return
   }
 
@@ -1293,14 +1523,12 @@ const handlePayRent = async () => {
 
     rentPaidThisTurn.value = true
 
+    toast.success('Rent paid successfully.')
+
     await fetchProperties()
     await fetchLeaderboard()
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to pay rent.')
-    } else {
-      console.error('Failed to pay rent.')
-    }
+    showError(error, 'Failed to pay rent.')
   } finally {
     payingRent.value = false
   }
@@ -1308,7 +1536,7 @@ const handlePayRent = async () => {
 
 const handleBuyHouse = async () => {
   if (!currentProperty.value) {
-    console.error('No property available on this tile.')
+    toast.warning('No property available on this tile.')
     return
   }
 
@@ -1322,14 +1550,18 @@ const handleBuyHouse = async () => {
 
     houseBoughtThisTurn.value = true
 
+    toast.success('House bought successfully.')
+
     await fetchProperties()
     await fetchLeaderboard()
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to buy house.')
-    } else {
-      console.error('Failed to buy house.')
+    const message = getErrorMessage(error, 'Failed to buy house.')
+
+    if (message === 'You cannot buy a house in the same turn you bought a property') {
+      propertyBoughtThisTurn.value = true
     }
+
+    toast.error(message)
   } finally {
     buyingHouse.value = false
   }
@@ -1337,7 +1569,7 @@ const handleBuyHouse = async () => {
 
 const handleBuyHotel = async () => {
   if (!currentProperty.value) {
-    console.error('No property available on this tile.')
+    toast.warning('No property available on this tile.')
     return
   }
 
@@ -1351,12 +1583,9 @@ const handleBuyHotel = async () => {
 
     await fetchProperties()
     await fetchLeaderboard()
+    toast.success('Hotel bought successfully.')
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to buy hotel.')
-    } else {
-      console.error('Failed to buy hotel.')
-    }
+    showError(error, 'Failed to buy hotel.')
   } finally {
     buyingHotel.value = false
   }
@@ -1369,11 +1598,7 @@ const handleEndGame = async () => {
     await api.post(`/api/games/${gameId}/end-game`)
     router.push(`/games/${gameId}/final-leaderboard`)
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to end game.')
-    } else {
-      console.error('Failed to end game.')
-    }
+    showError(error, 'Failed to end game.')
   } finally {
     endingGame.value = false
   }
@@ -1390,12 +1615,10 @@ const handleEndTurn = async () => {
     lastDiceRoll.value = null
     hasRolledThisTurn.value = false
 
+    toast.success('Turn ended.')
+
   } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      console.error(error.response?.data?.message || 'Failed to end turn.')
-    } else {
-      console.error('Failed to end turn.')
-    }
+    showError(error, 'Failed to end turn.')
   } finally {
     endingTurn.value = false
   }
@@ -1421,6 +1644,7 @@ onMounted(async () => {
       hasRolledThisTurn.value = false
       rentPaidThisTurn.value = false
       houseBoughtThisTurn.value = false
+      propertyBoughtThisTurn.value = false
 
       rankedPlayers.value = rankedPlayers.value.map((player, index) => {
         const isCurrentTurn = player.id === event.current_turn_user_id
@@ -1445,9 +1669,20 @@ onMounted(async () => {
       })
     })
 
-    gameChannel.listen('.dice.rolled', (event: DiceRolledEvent) => {
+    gameChannel.listen('.dice.rolled', async (event: DiceRolledEvent) => {
       lastDiceRoll.value = event.dice_value
       currentPosition.value = event.new_position
+
+      const matchedProperty = gameProperties.value.find(
+        (property) => property.tile_number === event.new_position
+      )
+
+      if (matchedProperty) {
+        currentTile.value = matchedProperty.tile_name
+        currentTileType.value = null
+      } else {
+        await fetchTileByPosition(event.new_position)
+      }
 
       diceOne.value = null
       diceTwo.value = null
@@ -1457,15 +1692,33 @@ onMounted(async () => {
       }
     })
 
-    gameChannel.listen('.leaderboard.updated', (event: LeaderboardUpdatedEvent) => {
+    gameChannel.listen('.leaderboard.updated', async (event: LeaderboardUpdatedEvent) => {
       applyLeaderboard(event.leaderboard)
 
       const currentPlayer = event.leaderboard.find(
         (player) => player.user_id === authStore.user?.id
       )
 
-      if (currentPlayer && typeof currentPlayer.position === 'number') {
-        currentPosition.value = currentPlayer.position
+      if (currentPlayer) {
+        propertyBoughtThisTurn.value =
+          currentPlayer.last_property_bought_turn !== null &&
+          currentPlayer.last_property_bought_turn !== undefined &&
+          currentPlayer.last_property_bought_turn === turnNumber.value
+
+        if (typeof currentPlayer.position === 'number') {
+          currentPosition.value = currentPlayer.position
+
+          const matchedProperty = gameProperties.value.find(
+            (property) => property.tile_number === currentPlayer.position
+          )
+
+          if (matchedProperty) {
+            currentTile.value = matchedProperty.tile_name
+            currentTileType.value = null
+          } else {
+            await fetchTileByPosition(currentPlayer.position)
+          }
+        }
       }
     })
 
@@ -1473,8 +1726,8 @@ onMounted(async () => {
       gameStatus.value = event.status
       router.push(`/games/${gameId}/final-leaderboard`)
     })
-  } catch (error) {
-    console.error('Failed to load game board data:', error)
+  } catch (error: unknown) {
+    showError(error, 'Failed to load game board data.')
   }
 })
 

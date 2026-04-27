@@ -13,6 +13,7 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Models\Tile;
 
 class GameController extends Controller
 {
@@ -279,7 +280,26 @@ class GameController extends Controller
         $diceTwo = random_int(1, 6);
         $diceRoll = $diceOne + $diceTwo;
 
-        $gamePlayer->position = ($gamePlayer->position + $diceRoll) % 40;
+
+        $oldPosition = $gamePlayer->position ?? 0;
+        $rawPosition = $oldPosition + $diceRoll;
+        $newPosition = $rawPosition % 40;
+
+        // Grant 50 credits when passing or landing on GO
+        if ($rawPosition >= 40 || $newPosition === 0) {
+            $gamePlayer->credits += 50;
+            $gamePlayer->total_credits += 50;
+        }
+
+        $gamePlayer->position = $newPosition;
+
+        // If player lands on Go To Jail (tile 30), send them to Jail (tile 10)
+        // and make them skip 1 round
+        if ($newPosition === 30) {
+            $gamePlayer->position = 10;
+            $gamePlayer->skip_turns = 1;
+        }
+
         $gamePlayer->save();
 
         $game->last_dice_roll = $diceRoll;
@@ -355,8 +375,28 @@ class GameController extends Controller
             ], 400);
         }
 
-        $nextIndex = ($currentIndex + 1) % $players->count();
-        $nextPlayer = $players[$nextIndex];
+        $playerCount = $players->count();
+        $nextPlayer = null;
+
+        for ($step = 1; $step <= $playerCount; $step++) {
+            $candidateIndex = ($currentIndex + $step) % $playerCount;
+            $candidate = $players[$candidateIndex];
+
+            if (($candidate->skip_turns ?? 0) > 0) {
+                $candidate->skip_turns = max(0, $candidate->skip_turns - 1);
+                $candidate->save();
+                continue;
+            }
+
+            $nextPlayer = $candidate;
+            break;
+        }
+
+        if (! $nextPlayer) {
+            return response()->json([
+                'message' => 'No eligible next player found',
+            ], 400);
+        }
 
         $game->current_turn_user_id = $nextPlayer->user_id;
         $game->turn_number += 1;
@@ -449,6 +489,57 @@ class GameController extends Controller
             'user_id' => $user->id,
             'games' => $games,
         ]);
+    }
+
+    public function tileByNumber($id, $tileNumber)
+    {
+        $game = Game::find($id);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        $tile = Tile::where('tile_number', $tileNumber)->first();
+
+        if (! $tile) {
+            return response()->json([
+                'message' => 'Tile not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'tile' => [
+                'id' => $tile->id,
+                'tile_number' => $tile->tile_number,
+                'tile_name' => $tile->tile_name,
+                'tile_type' => $tile->tile_type,
+                'nfc_value' => $tile->nfc_value,
+                'difficulty' => $tile->difficulty,
+            ],
+        ]);
+    }
+
+    private function buildLeaderboardPayload($gameId)
+    {
+        $players = \App\Models\GamePlayer::with('user')
+            ->where('game_id', $gameId)
+            ->orderByDesc('total_credits')
+            ->orderByDesc('credits')
+            ->get();
+
+        return $players->values()->map(function ($player, $index) {
+            return [
+                'rank' => $index + 1,
+                'user_id' => $player->user_id,
+                'user_name' => $player->user ? $player->user->name : 'Unknown',
+                'credits' => $player->credits,
+                'total_credits' => $player->total_credits,
+                'position' => $player->position,
+                'last_property_bought_turn' => $player->last_property_bought_turn,
+            ];
+        })->toArray();
     }
 
     protected function buildLobbyPlayersPayload(int $gameId): array

@@ -97,10 +97,10 @@
                 <td class="py-6 px-8">
                   <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center font-bold">
-                      {{ getInitials(player.name) }}
+                      {{ getInitials(player.user_name) }}
                     </div>
                     <div>
-                      <span class="block font-bold text-lg">{{ player.name }}</span>
+                      <span class="block font-bold text-lg">{{ player.user_name }}</span>
                       <span v-if="index === 0" class="text-xs font-medium text-yellow-700">
                         Winner
                       </span>
@@ -136,7 +136,7 @@
           </div>
           <div>
             <h4 class="text-lg font-bold font-['Space_Grotesk'] leading-tight">
-              Winner: {{ leaderboard[0]?.name || '—' }}
+              Winner: {{ leaderboard[0]?.user_name || '—' }}
             </h4>
             <p class="text-sm text-on-surface-variant">
               Top total credits: {{ leaderboard[0]?.total_credits ?? '—' }}
@@ -176,7 +176,7 @@ import api from '@/services/api'
 type LeaderboardPlayer = {
   rank: number
   user_id: number
-  name: string
+  user_name: string
   email: string | null
   credits: number
   total_credits: number
@@ -211,7 +211,9 @@ const fetchFinalLeaderboard = async () => {
   }
 }
 
-const getInitials = (name: string) => {
+const getInitials = (name?: string | null) => {
+  if (!name) return '--'
+
   return name
     .split(' ')
     .filter(Boolean)
