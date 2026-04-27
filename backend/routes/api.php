@@ -28,8 +28,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/games/{id}', [GameController::class, 'show']);
     
     Route::post('/games/{id}/scan-tile', [QuestionController::class, 'scanTile']);
+    Route::post('/games/{id}/scan-card', [QuestionController::class, 'scanCard']);
+    Route::get('/games/{id}/tiles/by-number/{tileNumber}', [GameController::class, 'tileByNumber']);
     Route::post('/games/{id}/tiles/{tileId}/question', [QuestionController::class, 'getQuestionByDifficulty']);
     Route::post('/games/{id}/questions/{questionId}/submit', [QuestionController::class, 'submitAnswer']);
+   
     Route::post('/properties/buy', [PropertyController::class, 'buy']);
     Route::post('/properties/buy-house', [PropertyController::class, 'buyHouse']);
     Route::post('/properties/buy-hotel', [PropertyController::class, 'buyHotel']);

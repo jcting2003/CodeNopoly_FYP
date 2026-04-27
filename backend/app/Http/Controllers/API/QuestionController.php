@@ -9,6 +9,9 @@ use App\Models\Question;
 use App\Models\GamePlayer;
 use App\Models\PlayerAnswer;
 use Illuminate\Http\Request;
+use App\Models\Card;
+use App\Models\Game;
+
 
 class QuestionController extends Controller
 {
@@ -293,6 +296,148 @@ class QuestionController extends Controller
             'earned_credits' => $earnedCredits,
             'current_credits' => $gamePlayer->credits,
             'total_credits' => $gamePlayer->total_credits,
+        ]);
+    }
+
+    public function scanCard(Request $request, $id)
+    {
+        $fields = $request->validate([
+            'card_code' => 'required|string|exists:cards,card_code',
+        ]);
+
+        $user = $request->user();
+
+        $game = Game::find($id);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        $gamePlayer = GamePlayer::where('game_id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $gamePlayer) {
+            return response()->json([
+                'message' => 'Player not found in this game',
+            ], 404);
+        }
+
+        $tile = Tile::where('tile_number', $gamePlayer->position)->first();
+
+        if (! $tile) {
+            return response()->json([
+                'message' => 'Current tile not found',
+            ], 404);
+        }
+
+        $card = Card::where('card_code', $fields['card_code'])
+            ->where('is_active', true)
+            ->first();
+
+        if (! $card) {
+            return response()->json([
+                'message' => 'Card not found',
+            ], 404);
+        }
+
+        if ($card->card_type === 'community_chest' && $tile->tile_type !== 'community_chest') {
+            return response()->json([
+                'message' => 'You are not on a Community Chest tile',
+            ], 422);
+        }
+
+        if ($card->card_type === 'chance' && $tile->tile_type !== 'chance') {
+            return response()->json([
+                'message' => 'You are not on a Chance tile',
+            ], 422);
+        }
+
+        $resultMessage = null;
+
+        if ($card->effect_type === 'credits_add') {
+            $gamePlayer->credits += $card->effect_value;
+            $gamePlayer->total_credits += $card->effect_value;
+            $gamePlayer->save();
+
+            $resultMessage = 'Credits added successfully';
+        } elseif ($card->effect_type === 'credits_deduct') {
+            $gamePlayer->credits -= $card->effect_value;
+
+            if ($gamePlayer->credits < 0) {
+                $gamePlayer->credits = 0;
+            }
+
+            $gamePlayer->save();
+
+            $resultMessage = 'Credits deducted successfully';
+        } elseif ($card->effect_type === 'move_forward') {
+            $newPosition = ($gamePlayer->position + $card->effect_value) % 40;
+            $gamePlayer->position = $newPosition;
+            $gamePlayer->save();
+
+            $resultMessage = 'Player moved forward';
+        } elseif ($card->effect_type === 'move_backward') {
+            $newPosition = $gamePlayer->position - $card->effect_value;
+
+            while ($newPosition < 0) {
+                $newPosition += 40;
+            }
+
+            $gamePlayer->position = $newPosition;
+            $gamePlayer->save();
+
+            $resultMessage = 'Player moved backward';
+        } elseif ($card->effect_type === 'move_to_tile') {
+            $gamePlayer->position = $card->target_tile_number;
+            $gamePlayer->save();
+
+            $resultMessage = 'Player moved to target tile';
+        } elseif ($card->effect_type === 'move_to_go') {
+            $gamePlayer->position = 0;
+            $gamePlayer->credits += 200;
+            $gamePlayer->total_credits += 200;
+            $gamePlayer->save();
+
+            $resultMessage = 'Player moved to GO and collected reward';
+        } else {
+            return response()->json([
+                'message' => 'Unsupported card effect type',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Card scanned successfully',
+            'card' => [
+                'id' => $card->id,
+                'card_code' => $card->card_code,
+                'card_type' => $card->card_type,
+                'title' => $card->title,
+                'description' => $card->description,
+                'effect_type' => $card->effect_type,
+                'effect_value' => $card->effect_value,
+                'target_tile_number' => $card->target_tile_number,
+            ],
+            'result' => [
+                'message' => $resultMessage,
+                'current_credits' => $gamePlayer->credits,
+                'total_credits' => $gamePlayer->total_credits,
+                'new_position' => $gamePlayer->position,
+            ],
         ]);
     }
 

@@ -63,7 +63,19 @@ class PropertyController extends Controller
             ], 400);
         }
 
+        
+
+        $game = Game::find($fields['game_id']);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
         $gamePlayer->credits -= $property->cost;
+        $gamePlayer->last_property_bought_turn = $game->turn_number;
+        $gamePlayer->last_property_bought_property_id = $property->id;
         $gamePlayer->save();
 
         GameProperty::where('game_id', $fields['game_id'])
@@ -146,6 +158,15 @@ class PropertyController extends Controller
             return response()->json([
                 'message' => 'Game not found',
             ], 404);
+        }
+
+        if (
+            $gamePlayer->last_property_bought_turn !== null &&
+            (int) $gamePlayer->last_property_bought_turn === (int) $game->turn_number
+        ) {
+            return response()->json([
+                'message' => 'You cannot buy a house in the same turn you bought a property',
+            ], 422);
         }
 
         if ($game->status !== 'started') {

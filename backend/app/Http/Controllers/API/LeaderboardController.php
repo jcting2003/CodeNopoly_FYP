@@ -29,11 +29,12 @@ class LeaderboardController extends Controller
             return [
                 'rank' => $index + 1,
                 'user_id' => $player->user_id,
-                'name' => $player->user ? $player->user->name : 'Unknown',
+                'user_name' => $player->user ? $player->user->name : 'Unknown',
                 'email' => $player->user ? $player->user->email : null,
                 'credits' => $player->credits,
                 'total_credits' => $player->total_credits,
                 'position' => $player->position,
+                'last_property_bought_turn' => $player->last_property_bought_turn,
             ];
         });
 

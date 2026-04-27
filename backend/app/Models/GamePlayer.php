@@ -19,6 +19,9 @@ class GamePlayer extends Model
         'last_rent_paid_turn',
         'last_rent_paid_property_id',
         'last_hotel_purchase_turn',
+        'last_property_bought_turn',
+        'last_property_bought_property_id',
+        'skip_turns',
     ];
 
     public function casts(): array{
