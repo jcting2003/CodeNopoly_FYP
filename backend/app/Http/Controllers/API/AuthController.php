@@ -24,9 +24,29 @@ class AuthController extends Controller
             'password' => Hash::make($fields['password']),
         ]);
 
+        // Mobile / Expo registration: return Sanctum token
+        if ($request->filled('device_name')) {
+            $token = $user->createToken($request->device_name)->plainTextToken;
+
+            return response()->json([
+                'message' => 'Registration successful',
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+            ], 201);
+        }
+
+        // Web registration
         return response()->json([
             'message' => 'Registration successful',
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
         ], 201);
     }
 
@@ -37,26 +57,63 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        if (!Auth::attempt($fields)) {
+        $user = User::where('email', $fields['email'])->first();
+
+        if (! $user || ! Hash::check($fields['password'], $user->password)) {
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 401);
         }
 
-        $request->session()->regenerate();
+        // Mobile / Expo login: return Sanctum token
+        if ($request->filled('device_name')) {
+            $token = $user->createToken($request->device_name)->plainTextToken;
+
+            return response()->json([
+                'message' => 'Login successful',
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+            ]);
+        }
+
+        // Web login: keep session-based login
+        Auth::login($user);
+
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
 
         return response()->json([
             'message' => 'Login successful',
-            'user' => Auth::user(),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
         ]);
     }
-
     public function logout(Request $request)
     {
+        // Mobile / token logout
+        if ($request->user() && $request->bearerToken()) {
+            $request->user()->currentAccessToken()?->delete();
+
+            return response()->json([
+                'message' => 'Logged out successfully',
+            ]);
+        }
+
+        // Web / session logout
         Auth::guard('web')->logout();
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json([
             'message' => 'Logged out successfully',
@@ -66,7 +123,9 @@ class AuthController extends Controller
     public function user(Request $request)
     {
         return response()->json([
-            'user' => $request->user(),
+            'id' => $request->user()->id,
+            'name' => $request->user()->name,
+            'email' => $request->user()->email,
         ]);
     }
 }

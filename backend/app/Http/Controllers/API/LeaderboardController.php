@@ -9,14 +9,26 @@ use Illuminate\Http\Request;
 
 class LeaderboardController extends Controller
 {
-    public function show($id)
+    public function show(Request $request, $id)
     {
+        $user = $request->user();
+
         $game = Game::find($id);
 
         if (! $game) {
             return response()->json([
                 'message' => 'Game not found',
             ], 404);
+        }
+
+        $isParticipant = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (! $isParticipant && $game->host_id !== $user->id) {
+            return response()->json([
+                'message' => 'You are not part of this game',
+            ], 403);
         }
 
         $players = GamePlayer::with('user')

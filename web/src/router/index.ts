@@ -8,6 +8,7 @@ import GameLobbyPage from '@/pages/GameLobbyPage.vue'
 import JoinGamePage from '@/pages/JoinGamePage.vue'
 import GameBoardPage from '@/pages/GameBoardPage.vue'
 import FinalLeaderboardPage from '@/pages/FinalLeaderboardPage.vue'
+import MyGamesPage from '@/pages/MyGamesPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -56,6 +57,12 @@ const router = createRouter({
       path: '/games/:id/final-leaderboard',
       name: 'FinalLeaderboard',
       component: FinalLeaderboardPage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/my-games',
+      name: 'MyGames',
+      component: MyGamesPage,
       meta: { requiresAuth: true },
     },
   ],

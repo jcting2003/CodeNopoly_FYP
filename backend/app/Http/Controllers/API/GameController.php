@@ -45,27 +45,46 @@ class GameController extends Controller
         ], 201);
     }
 
-    public function join(Request $request){
+    public function join(Request $request)
+    {
         $fields = $request->validate([
-            'game_code' => 'required|string|exists:games,game_code',
+            'game_code' => 'required|string',
         ]);
 
         $user = $request->user();
-        $game = Game::where('game_code', $fields['game_code'])->first();
 
-        if($game->status !== 'waiting'){
+        $gameCode = strtoupper(trim($fields['game_code']));
+
+        $game = Game::where('game_code', $gameCode)->first();
+
+        if (! $game) {
             return response()->json([
-                'message' => 'This game is no longer open for joining',
-            ], 400);
+                'message' => 'Game not found',
+            ], 404);
         }
 
         $alreadyJoined = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $user->id)
             ->exists();
 
-        if($alreadyJoined){
+        if ($alreadyJoined) {
             return response()->json([
-                'message' => 'You have already joined this game',
+                'message' => 'You are already in this game',
+                'already_joined' => true,
+                'game' => [
+                    'id' => $game->id,
+                    'game_code' => $game->game_code,
+                    'status' => $game->status,
+                    'host_id' => $game->host_id,
+                    'started_at' => $game->started_at,
+                    'ended_at' => $game->ended_at,
+                ],
+            ]);
+        }
+
+        if ($game->status !== 'waiting') {
+            return response()->json([
+                'message' => 'This game is no longer open for joining',
             ], 400);
         }
 
@@ -84,7 +103,15 @@ class GameController extends Controller
 
         return response()->json([
             'message' => 'Joined game successfully',
-            'game' => $game,
+            'already_joined' => false,
+            'game' => [
+                'id' => $game->id,
+                'game_code' => $game->game_code,
+                'status' => $game->status,
+                'host_id' => $game->host_id,
+                'started_at' => $game->started_at,
+                'ended_at' => $game->ended_at,
+            ],
         ]);
     }
 
@@ -459,34 +486,41 @@ class GameController extends Controller
     {
         $user = $request->user();
 
-        $games = \App\Models\GamePlayer::with('game')
-            ->where('user_id', $user->id)
+        $games = Game::query()
+            ->where(function ($query) use ($user) {
+                $query->where('host_id', $user->id)
+                    ->orWhereHas('players', function ($playerQuery) use ($user) {
+                        $playerQuery->where('user_id', $user->id);
+                    });
+            })
+            ->with([
+                'host:id,name',
+                'players' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                },
+            ])
+            ->latest()
             ->get()
-            ->map(function ($gamePlayer) use ($user) {
-                $game = $gamePlayer->game;
-
-                if (! $game) {
-                    return null;
-                }
+            ->map(function ($game) use ($user) {
+                $playerRecord = $game->players->first();
 
                 return [
-                    'game_id' => $game->id,
+                    'id' => $game->id,
                     'game_code' => $game->game_code,
                     'status' => $game->status,
+                    'host_id' => $game->host_id,
+                    'host_name' => $game->host?->name,
                     'is_host' => $game->host_id === $user->id,
-                    'credits' => $gamePlayer->credits,
-                    'total_credits' => $gamePlayer->total_credits,
-                    'position' => $gamePlayer->position ?? null,
-                    'created_at' => $game->created_at,
+                    'credits' => $playerRecord?->credits ?? 0,
+                    'total_credits' => $playerRecord?->total_credits ?? 0,
+                    'position' => $playerRecord?->position,
                     'started_at' => $game->started_at,
                     'ended_at' => $game->ended_at,
+                    'created_at' => $game->created_at,
                 ];
-            })
-            ->filter()
-            ->values();
+            });
 
         return response()->json([
-            'user_id' => $user->id,
             'games' => $games,
         ]);
     }

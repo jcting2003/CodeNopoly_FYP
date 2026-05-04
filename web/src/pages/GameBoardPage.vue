@@ -144,6 +144,12 @@
               >
                 Turn {{ turnNumber || '—' }}
               </span>
+              <span
+                class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest"
+                :class="statusBadgeClass"
+              >
+                {{ statusLabel }}
+              </span>
 
               <span class="text-on-surface-variant font-label text-sm tracking-tight flex items-center gap-1">
                 <span class="material-symbols-outlined text-sm">schedule</span>
@@ -340,10 +346,13 @@
 
               <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
                 <span class="text-sm font-medium opacity-70">Game Status</span>
-                <div class="flex gap-1 items-center">
-                  <div class="w-2 h-4 bg-tertiary rounded-sm"></div>
-                  <span class="font-headline font-bold text-sm">{{ gameStatus || '—' }}</span>
-                </div>
+
+                <span
+                  class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
+                  :class="statusBadgeClass"
+                >
+                  {{ statusLabel }}
+                </span>
               </div>
             </div>
           </div>
@@ -1125,6 +1134,29 @@ const currentRentAmount = computed(() => {
   return currentProperty.value.rent
 })
 
+const statusLabel = computed(() => {
+  if (gameStatus.value === 'waiting') return 'Waiting for Players'
+  if (gameStatus.value === 'started') return 'Game In Progress'
+  if (gameStatus.value === 'ended') return 'Game Ended'
+  return 'Unknown Status'
+})
+
+const statusBadgeClass = computed(() => {
+  if (gameStatus.value === 'waiting') {
+    return 'bg-yellow-100 text-yellow-700'
+  }
+
+  if (gameStatus.value === 'started') {
+    return 'bg-green-100 text-green-700'
+  }
+
+  if (gameStatus.value === 'ended') {
+    return 'bg-red-100 text-red-700'
+  }
+
+  return 'bg-slate-100 text-slate-600'
+})
+
 const refreshBoard = async () => {
   await fetchGame()
   await fetchCurrentTurn()
@@ -1627,6 +1659,18 @@ const handleEndTurn = async () => {
 onMounted(async () => {
   try {
     await refreshBoard()
+
+    if (gameStatus.value === 'waiting') {
+      toast.info('Game has not started yet. Redirecting to lobby.')
+      router.replace(`/game-lobby/${gameId}`)
+      return
+    }
+
+    if (gameStatus.value === 'ended') {
+      toast.info('This game has ended. Showing final leaderboard.')
+      router.replace(`/games/${gameId}/final-leaderboard`)
+      return
+    }
 
     gameChannel = echo.private(`game.${gameId}`)
 

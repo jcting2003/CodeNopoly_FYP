@@ -155,7 +155,7 @@
 
           <button
             type="button"
-            @click="router.push('/mainpage')"
+            @click="router.push('/create-game')"
             class="flex-1 md:flex-none px-14 py-4 bg-gradient-to-br from-primary to-primary-dim text-on-primary font-bold font-['Space_Grotesk'] rounded-2xl shadow-xl shadow-primary/30 hover:brightness-110 hover:scale-[1.02] transition-all active:scale-95 duration-200 flex items-center justify-center gap-3"
           >
             <span class="material-symbols-outlined text-2xl">refresh</span>
@@ -170,6 +170,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'vue-toastification'
+import axios from 'axios'
 import Navbar from '@/components/NavBar.vue'
 import api from '@/services/api'
 
@@ -192,7 +194,20 @@ type LeaderboardResponse = {
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const gameId = Number(route.params.id)
+
+type ErrorResponse = {
+  message?: string
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
+  }
+
+  return fallback
+}
 
 const loading = ref(false)
 const gameCode = ref('')
@@ -201,11 +216,22 @@ const leaderboard = ref<LeaderboardPlayer[]>([])
 
 const fetchFinalLeaderboard = async () => {
   loading.value = true
+
   try {
     const response = await api.get<LeaderboardResponse>(`/api/games/${gameId}/leaderboard`)
+
     gameCode.value = response.data.game_code || ''
     gameStatus.value = response.data.status || ''
     leaderboard.value = response.data.leaderboard || []
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      toast.error(error.response.data?.message || 'You are not part of this game.')
+      router.replace('/my-games')
+      return
+    }
+
+    toast.error(getErrorMessage(error, 'Failed to load final leaderboard.'))
+    router.replace('/my-games')
   } finally {
     loading.value = false
   }

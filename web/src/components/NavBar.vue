@@ -22,11 +22,11 @@
         </RouterLink>
 
         <RouterLink
-          to="/history"
+          to="/my-games"
           class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
           active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
         >
-          History
+          My Games
         </RouterLink>
       </div>
     </div>
