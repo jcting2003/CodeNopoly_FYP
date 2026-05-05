@@ -15,6 +15,13 @@ type User = {
   email: string
 }
 
+type UserResponse =
+  | User
+  | {
+      user: User
+    }
+
+
 type LoginResponse = {
   token: string
   user: User
@@ -25,13 +32,27 @@ type AuthContextValue = {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  register: (payload: RegisterPayload) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
 
+type RegisterPayload = {
+  name: string
+  email: string
+  password: string
+  password_confirmation: string
+}
+
+type RegisterResponse = {
+  message: string
+  token: string
+  user: User
+}
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-const TOKEN_KEY = 'codenopoly_token'
+const TOKEN_KEY = 'pythonopoly_token'
 
 const saveToken = async (value: string) => {
   if (Platform.OS === 'web') {
@@ -42,7 +63,7 @@ const saveToken = async (value: string) => {
   await SecureStore.setItemAsync(TOKEN_KEY, value)
 }
 
-const getStoredToken = async () => {
+export const getStoredToken = async () => {
   if (Platform.OS === 'web') {
     return localStorage.getItem(TOKEN_KEY)
   }
@@ -64,27 +85,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const refreshUser = async () => {
-    try {
-      const response = await api.get<User>('/api/user')
-      setUser(response.data)
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        await removeStoredToken()
-        setAuthToken(null)
-        setToken(null)
-        setUser(null)
-      }
+const refreshUser = async () => {
+  const response = await api.get<UserResponse>('/api/user')
 
-      throw error
-    }
+  if ('user' in response.data) {
+    setUser(response.data.user)
+  } else {
+    setUser(response.data)
+  }
+}
+
+  const register = async (payload: RegisterPayload) => {
+    await api.post('/api/register', {
+      ...payload,
+      device_name: 'expo_mobile',
+    })
   }
 
   const login = async (email: string, password: string) => {
     const response = await api.post<LoginResponse>('/api/login', {
       email,
       password,
-      device_name: 'expo_mobile',
+      device_name: `expo_mobile_${Platform.OS}`,
     })
 
     const newToken = response.data.token
@@ -137,6 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         token,
         loading,
+        register,
         login,
         logout,
         refreshUser,

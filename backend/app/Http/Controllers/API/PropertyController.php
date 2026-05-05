@@ -73,6 +73,24 @@ class PropertyController extends Controller
             ], 404);
         }
 
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before buying a property',
+            ], 422);
+        }
+
         $gamePlayer->credits -= $property->cost;
         $gamePlayer->last_property_bought_turn = $game->turn_number;
         $gamePlayer->last_property_bought_property_id = $property->id;
@@ -181,6 +199,12 @@ class PropertyController extends Controller
             ], 403);
         }
 
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before buying a house',
+            ], 422);
+        }
+
         if (
             $gamePlayer->last_house_bought_turn !== null &&
             (int) $gamePlayer->last_house_bought_turn === (int) $game->turn_number
@@ -265,13 +289,39 @@ class PropertyController extends Controller
             ], 400);
         }
 
+        $game = Game::find($fields['game_id']);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before buying a hotel',
+            ], 422);
+        }
+
         $gamePlayer->credits -= $property->hotel_cost;
         $gamePlayer->save();
 
         GameProperty::where('game_id', $fields['game_id'])
             ->where('property_id', $fields['property_id'])
             ->update([
-                'houses' => 0,
+                'houses' => 4,
                 'has_hotel' => true,
                 'updated_at' => now(),
             ]);
@@ -379,6 +429,12 @@ class PropertyController extends Controller
             ], 403);
         }
 
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before paying rent',
+            ], 422);
+        }
+
         if (
             $tenant->last_rent_paid_turn !== null &&
             (int) $tenant->last_rent_paid_turn === (int) $game->turn_number &&
@@ -417,7 +473,7 @@ class PropertyController extends Controller
         ]);
     }
 
-    public function gameProperties($id)
+    public function gameProperties(Request $request, int $id)
     {
         $game = Game::find($id);
 
@@ -425,6 +481,16 @@ class PropertyController extends Controller
             return response()->json([
                 'message' => 'Game not found',
             ], 404);
+        }
+
+        $isPlayerInGame = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isPlayerInGame) {
+            return response()->json([
+                'message' => 'You are not part of this game',
+            ], 403);
         }
 
         $properties = Property::with('tile')

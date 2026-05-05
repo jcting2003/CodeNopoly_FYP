@@ -21,7 +21,7 @@
               {{ gameStatusText }}
             </p>
 
-            <div class="mt-12 grid grid-cols-2 gap-4">
+            <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div
                 class="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(42,51,60,0.06)]"
               >
@@ -42,6 +42,27 @@
                 <span class="text-3xl font-bold font-headline tracking-tight text-secondary">
                   {{ players.length }} / {{ maxPlayers }}
                 </span>
+              </div>
+
+              <div
+                class="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(42,51,60,0.06)] flex flex-col items-center justify-center"
+              >
+                <span class="block text-xs uppercase tracking-widest font-label text-outline mb-3">
+                  Scan to Join
+                </span>
+
+                <div class="bg-white p-3 rounded-2xl shadow-sm">
+                  <QrcodeVue
+                    v-if="displayGameCode !== '------'"
+                    :value="displayGameCode"
+                    :size="120"
+                    level="H"
+                  />
+                </div>
+
+                <p class="mt-3 text-xs text-on-surface-variant font-medium text-center">
+                  Mobile users can scan this QR code to join.
+                </p>
               </div>
             </div>
           </div>
@@ -171,6 +192,7 @@ import Navbar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import echo from '@/lib/echo'
 import { useAuthStore } from '@/stores/auth'
+import QrcodeVue from 'qrcode.vue'
 
 type GameData = {
   id: number
@@ -225,12 +247,12 @@ type GameStartedEvent = {
   turn_number: number
 }
 
-type TurnChangedEvent = {
-  game_id: number
-  turn_number: number
-  current_turn_user_id: number | null
-  current_turn_user_name: string | null
-}
+// type TurnChangedEvent = {
+//   game_id: number
+//   turn_number: number
+//   current_turn_user_id: number | null
+//   current_turn_user_name: string | null
+// }
 
 type LobbyPlayersUpdatedEvent = {
   game_id: number

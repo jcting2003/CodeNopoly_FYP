@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +31,7 @@ export default function JoinGameScreen() {
   const [joining, setJoining] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [hasScanned, setHasScanned] = useState(false)
+  const scanLockRef = useRef(false)
 
   const joinGame = async (code: string) => {
     const cleanedCode = code.trim().toUpperCase()
@@ -71,6 +72,7 @@ export default function JoinGameScreen() {
         error.response?.data?.message || 'Failed to join game. Please try again.'
 
       Alert.alert('Join Failed', message)
+      scanLockRef.current = false
       setHasScanned(false)
     } finally {
       setJoining(false)
@@ -79,12 +81,16 @@ export default function JoinGameScreen() {
   }
 
   const handleScannedCode = async (data: string) => {
-    if (hasScanned || joining) return
+    if (scanLockRef.current || hasScanned || joining) return
 
+    scanLockRef.current = false
     setHasScanned(true)
-    setGameCode(data)
+    setScannerOpen(false)
 
-    await joinGame(data)
+    const cleanedCode = data.trim().toUpperCase()
+    setGameCode(cleanedCode)
+
+    await joinGame(cleanedCode)
   }
 
   const openScanner = async () => {
@@ -107,7 +113,11 @@ export default function JoinGameScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="min-h-screen px-6 py-12"
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingHorizontal: 24,
+        paddingVertical: 48,
+      }}
       keyboardShouldPersistTaps="handled"
     >
       <View className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-primary-container opacity-20" />

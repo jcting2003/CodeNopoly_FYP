@@ -18,6 +18,7 @@
     "laravel-echo": "^2.3.4",
     "pinia": "^3.0.4",
     "pusher-js": "^8.5.0",
+    "qrcode.vue": "^3.9.0",
     "vue": "^3.5.31",
     "vue-router": "^5.0.4",
     "vue-toastification": "^2.0.0-rc.5"

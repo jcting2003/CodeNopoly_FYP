@@ -24,7 +24,11 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="min-h-screen px-6 py-12"
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingHorizontal: 24,
+        paddingVertical: 48,
+      }}
     >
       {/* Background glow elements */}
       <View className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-primary-container opacity-20" />

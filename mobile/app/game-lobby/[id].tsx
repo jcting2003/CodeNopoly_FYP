@@ -10,6 +10,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router'
 import api from '../../src/services/api'
 import { useAuth } from '../../src/context/AuthContext'
+import { getEcho } from '../../src/services/echo'
 
 type GameResponse = {
   game: {
@@ -22,22 +23,17 @@ type GameResponse = {
   }
 }
 
-type RawPlayer = {
-  user_id?: number
-  id?: number
-  user?: {
-    id: number
-    name: string
-  }
-  name?: string
-  username?: string
+type LobbyApiPlayer = {
+  id: number
+  name: string
+  email?: string | null
+  is_host: boolean
+  joined_at?: string | null
 }
 
-type PlayersResponse =
-  | RawPlayer[]
-  | {
-      players?: RawPlayer[]
-    }
+type PlayersResponse = {
+  players: LobbyApiPlayer[]
+}
 
 type LobbyPlayer = {
   id: number
@@ -101,35 +97,54 @@ export default function GameLobbyScreen() {
     }
 
     if (foundGame.status === 'ended') {
-      Alert.alert('Game Ended', 'This game has already ended.')
-      router.replace('/dashboard')
+      router.replace({
+        pathname: '/final-leaderboard/[id]',
+        params: {
+          id: String(gameId),
+        },
+      })
     }
+
+    return foundGame.host_id
   }
 
-  const fetchPlayers = async () => {
+  const normalizePlayers = (
+    rawPlayers: any[],
+    currentHostId: number | null
+  ): LobbyPlayer[] => {
+    return rawPlayers.map((player) => {
+      const playerId =
+        player.id ||
+        player.user_id ||
+        player.user?.id ||
+        0
+
+      const playerName =
+        player.name ||
+        player.user_name ||
+        player.username ||
+        player.user?.name ||
+        `Player ${playerId}`
+
+      return {
+        id: Number(playerId),
+        name: playerName,
+        status: player.status || 'CONNECTED',
+        is_host:
+          player.is_host === true ||
+          Number(playerId) === Number(currentHostId),
+      }
+    })
+  }
+
+  const fetchPlayers = async (currentHostId: number | null) => {
     const response = await api.get<PlayersResponse>(`/api/games/${gameId}/players`)
 
     const rawPlayers = Array.isArray(response.data)
       ? response.data
       : response.data.players || []
 
-    const mappedPlayers = rawPlayers.map((player) => {
-      const playerId = player.user?.id || player.user_id || player.id || 0
-      const playerName =
-        player.user?.name ||
-        player.name ||
-        player.username ||
-        `Player ${playerId}`
-
-      return {
-        id: playerId,
-        name: playerName,
-        status: 'CONNECTED',
-        is_host: playerId === hostId,
-      }
-    })
-
-    setPlayers(mappedPlayers)
+    setPlayers(normalizePlayers(rawPlayers, currentHostId))
   }
 
   const refreshLobby = async (showLoader = false) => {
@@ -143,8 +158,8 @@ export default function GameLobbyScreen() {
       if (showLoader) setLoading(true)
       else setRefreshing(true)
 
-      await fetchGame()
-      await fetchPlayers()
+      const currentHostId = await fetchGame()
+      await fetchPlayers(currentHostId)
     } catch (error: any) {
       const message =
         error.response?.data?.message || 'Failed to load lobby.'
@@ -185,14 +200,49 @@ export default function GameLobbyScreen() {
   }
 
   useEffect(() => {
-    refreshLobby(true)
+    let mounted = true
+    let channel: any = null
 
-    const interval = setInterval(() => {
-      refreshLobby(false)
-    }, 3000)
+    const setupRealtime = async () => {
+      await refreshLobby(true)
 
-    return () => clearInterval(interval)
-  }, [gameId, hostId])
+      const echo = await getEcho()
+
+      if (!echo || !mounted) return
+
+      channel = echo.private(`game.${gameId}`)
+
+      channel.listen('.lobby.players.updated', (event: any) => {
+        setPlayers(normalizePlayers(event.players || [], hostId))
+      })
+
+      channel.listen('.game.started', (event: any) => {
+        router.replace({
+          pathname: '/game-session/[id]',
+          params: {
+            id: String(event.game_id || gameId),
+          },
+        })
+      })
+
+      channel.listen('.game.ended', () => {
+        Alert.alert('Game Ended', 'This game has ended.')
+        router.replace('/dashboard')
+      })
+    }
+
+    setupRealtime()
+
+    return () => {
+      mounted = false
+
+      if (channel) {
+        channel.stopListening('.lobby.players.updated')
+        channel.stopListening('.game.started')
+        channel.stopListening('.game.ended')
+      }
+    }
+  }, [gameId])
 
   if (loading) {
     return (
@@ -208,7 +258,11 @@ export default function GameLobbyScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="min-h-screen px-6 py-12"
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingHorizontal: 24,
+        paddingVertical: 48,
+      }}
     >
       <View className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-primary-container opacity-20" />
       <View className="absolute top-80 -right-32 h-80 w-80 rounded-full bg-secondary-container opacity-30" />

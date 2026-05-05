@@ -55,6 +55,10 @@ export default function RootLayout() {
           name="question"
           options={{ title: 'Question' }}
         />
+        <Stack.Screen
+          name="final-leaderboard/[id]"
+          options={{ title: 'Final Leaderboard' }}
+        />
       </Stack>
     </AuthProvider>
   )

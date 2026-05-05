@@ -17,7 +17,7 @@ import { useAuth } from '../src/context/AuthContext'
 type AuthTab = 'login' | 'register'
 
 export default function LoginScreen() {
-  const { login } = useAuth()
+  const { login, register } = useAuth()
   const { width } = useWindowDimensions()
 
   const isWideScreen = width >= 768
@@ -26,6 +26,10 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [registerName, setRegisterName] = useState('')
+  const [registerEmail, setRegisterEmail] = useState('')
+  const [registerPassword, setRegisterPassword] = useState('')
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('')
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -47,11 +51,62 @@ export default function LoginScreen() {
     }
   }
 
-  const handleRegister = () => {
-    Alert.alert(
-      'Register',
-      'Mobile registration can be connected later. For now, please use your existing account.'
-    )
+  const handleRegister = async () => {
+    if (
+      !registerName.trim() ||
+      !registerEmail.trim() ||
+      !registerPassword.trim() ||
+      !registerConfirmPassword.trim()
+    ) {
+      Alert.alert('Missing Details', 'Please complete all registration fields.')
+      return
+    }
+
+    if (registerPassword !== registerConfirmPassword) {
+      Alert.alert('Password Error', 'Passwords do not match.')
+      return
+    }
+
+    if (registerPassword.length < 8) {
+      Alert.alert('Password Error', 'Password must be at least 8 characters.')
+      return
+    }
+
+    try {
+      setSubmitting(true)
+
+      await register({
+        name: registerName.trim(),
+        email: registerEmail.trim(),
+        password: registerPassword,
+        password_confirmation: registerConfirmPassword,
+      })
+
+      Alert.alert(
+        'Registration Successful',
+        'Your account has been created. Please login with your new account.'
+      )
+
+      setActiveTab('login')
+      setEmail(registerEmail.trim())
+      setPassword('')
+
+      setRegisterName('')
+      setRegisterEmail('')
+      setRegisterPassword('')
+      setRegisterConfirmPassword('')
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.errors?.email?.[0] ||
+        error.response?.data?.errors?.password?.[0] ||
+        error.response?.data?.errors?.name?.[0] ||
+        'Failed to register. Please try again.'
+
+      Alert.alert('Register Failed', message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -61,7 +116,12 @@ export default function LoginScreen() {
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerClassName="min-h-screen items-center justify-center p-4 md:p-8 lg:p-12"
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 16,
+        }}
       >
         <View
           className={`w-full max-w-6xl overflow-hidden rounded-[2rem] bg-surface-container-low shadow-2xl ${
@@ -245,20 +305,87 @@ export default function LoginScreen() {
                 </Pressable>
               </View>
             ) : (
-              <View className="gap-4">
-                <Text className="rounded-2xl bg-surface-container-low p-4 text-center text-sm font-semibold text-on-surface-variant">
-                  Mobile registration can be connected later. Please use an
-                  existing account for now.
-                </Text>
+              <View className="gap-5">
+                <View className={`${isWideScreen ? 'flex-row' : 'flex-col'} gap-4`}>
+                  <View className="flex-1">
+                    <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
+                      Handle
+                    </Text>
+
+                    <TextInput
+                      value={registerName}
+                      onChangeText={setRegisterName}
+                      placeholder="py_coder"
+                      placeholderTextColor="#727C86"
+                      autoCapitalize="none"
+                      className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                    />
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
+                      Email
+                    </Text>
+
+                    <TextInput
+                      value={registerEmail}
+                      onChangeText={setRegisterEmail}
+                      placeholder="dev@mail.com"
+                      placeholderTextColor="#727C86"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
+                    Access Secret
+                  </Text>
+
+                  <TextInput
+                    value={registerPassword}
+                    onChangeText={setRegisterPassword}
+                    placeholder="••••••••"
+                    placeholderTextColor="#727C86"
+                    secureTextEntry
+                    className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                  />
+                </View>
+
+                <View>
+                  <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
+                    Confirm Secret
+                  </Text>
+
+                  <TextInput
+                    value={registerConfirmPassword}
+                    onChangeText={setRegisterConfirmPassword}
+                    placeholder="••••••••"
+                    placeholderTextColor="#727C86"
+                    secureTextEntry
+                    className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                  />
+                </View>
 
                 <Pressable
                   onPress={handleRegister}
-                  className="h-14 flex-row items-center justify-center gap-2 rounded-full bg-secondary shadow-lg active:scale-[0.98]"
+                  disabled={submitting}
+                  className={`h-14 flex-row items-center justify-center gap-2 rounded-full bg-secondary shadow-lg ${
+                    submitting ? 'opacity-60' : 'active:scale-[0.98]'
+                  }`}
                 >
-                  <Text className="text-lg font-black text-white">
-                    Initialize Profile
-                  </Text>
-                  <Text className="text-xl font-black text-white">＋</Text>
+                  {submitting ? (
+                    <ActivityIndicator color="#FFF7FC" />
+                  ) : (
+                    <>
+                      <Text className="text-lg font-black text-white">
+                        Initialize Profile
+                      </Text>
+                      <Text className="text-xl font-black text-white">＋</Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
             )}

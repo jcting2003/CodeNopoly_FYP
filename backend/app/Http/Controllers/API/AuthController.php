@@ -16,6 +16,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
+            'device_name' => 'nullable|string|max:255',
         ]);
 
         $user = User::create([
@@ -25,8 +26,9 @@ class AuthController extends Controller
         ]);
 
         // Mobile / Expo registration: return Sanctum token
-        if ($request->filled('device_name')) {
-            $token = $user->createToken($request->device_name)->plainTextToken;
+        if (!empty($fields['device_name'])) {
+            $user->tokens()->where('name', $fields['device_name'])->delete();
+            $token = $user->createToken($fields['device_name'])->plainTextToken;
 
             return response()->json([
                 'message' => 'Registration successful',
@@ -55,6 +57,7 @@ class AuthController extends Controller
         $fields = $request->validate([
             'email' => 'required|string|email',
             'password' => 'required|string',
+            'device_name' => 'nullable|string|max:255',
         ]);
 
         $user = User::where('email', $fields['email'])->first();
@@ -66,8 +69,9 @@ class AuthController extends Controller
         }
 
         // Mobile / Expo login: return Sanctum token
-        if ($request->filled('device_name')) {
-            $token = $user->createToken($request->device_name)->plainTextToken;
+        if (!empty($fields['device_name'])) {
+            $user->tokens()->where('name', $fields['device_name'])->delete();
+            $token = $user->createToken($fields['device_name'])->plainTextToken;
 
             return response()->json([
                 'message' => 'Login successful',
@@ -122,10 +126,24 @@ class AuthController extends Controller
 
     public function user(Request $request)
     {
+        if (! $request->user()) {
+            return response()->json([
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+         
+        $user = $request->user();
+
         return response()->json([
-            'id' => $request->user()->id,
-            'name' => $request->user()->name,
-            'email' => $request->user()->email,
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
         ]);
     }
 }
