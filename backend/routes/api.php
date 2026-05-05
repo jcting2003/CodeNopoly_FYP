@@ -6,6 +6,7 @@ use App\Http\Controllers\API\GameController;
 use App\Http\Controllers\API\QuestionController;
 use App\Http\Controllers\API\PropertyController;
 use App\Http\Controllers\API\LeaderboardController;
+use App\Http\Controllers\API\ProfileController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -13,6 +14,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
+    Route::get('/profile/stats', [ProfileController::class, 'stats']);
 
     Route::post('/games', [GameController::class, 'store']);
     Route::post('/games/join', [GameController::class, 'join']);

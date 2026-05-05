@@ -13,8 +13,8 @@
             class="font-headline text-5xl md:text-6xl font-bold text-on-surface tracking-tighter leading-tight mb-4"
           >
             Welcome back,
-            <span class="text-transparent bg-clip-text syntax-gradient">
-              {{ authStore.user?.username || 'Player' }}!
+            <span class="text-primary">
+              {{ authStore.user?.name || 'Player' }}!
             </span>
           </h1>
 
@@ -22,38 +22,6 @@
             The compiler is ready and the board is set.
           </p>
         </div>
-
-        <!-- <div class="absolute top-0 right-0 hidden lg:block">
-          <div
-            class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_12px_40px_rgba(42,51,60,0.06)] border border-outline-variant/10 flex flex-col gap-4"
-          >
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary">
-                <span class="material-symbols-outlined">account_balance</span>
-              </div>
-              <div>
-                <p class="font-headline text-xs font-bold text-outline uppercase tracking-widest">
-                  Balance
-                </p>
-                <p class="font-headline text-xl font-bold text-on-surface">
-                  5,420 <span class="text-sm font-medium text-on-surface-variant">PY</span>
-                </p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-lg bg-tertiary-container/20 flex items-center justify-center text-tertiary">
-                <span class="material-symbols-outlined">military_tech</span>
-              </div>
-              <div>
-                <p class="font-headline text-xs font-bold text-outline uppercase tracking-widest">
-                  Rank
-                </p>
-                <p class="font-headline text-xl font-bold text-on-surface">Senior Architect</p>
-              </div>
-            </div>
-          </div>
-        </div> -->
       </header>
 
       <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">

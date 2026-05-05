@@ -115,7 +115,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function player($id){
+    public function player(Request $request, int $id){
         $game = Game::with('players.user')->find($id);
 
         if(!$game){
@@ -124,15 +124,47 @@ class GameController extends Controller
             ], 404);
         }
 
+        $isPlayerInGame = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isPlayerInGame) {
+            return response()->json([
+                'message' => 'You are not part of this game',
+            ], 403);
+        }
+
         return response()->json([
-            'game' => $game,
-            'game_code' => $game-> game_code,
-            'status' => $game->status,
-            'players' => $game->players,
+            'game' => [
+                'id' => $game->id,
+                'host_id' => $game->host_id,
+                'game_code' => $game->game_code,
+                'status' => $game->status,
+                'started_at' => $game->started_at,
+                'ended_at' => $game->ended_at,
+            ],
+            'players' => $game->players->map(function ($player) use ($game) {
+                return [
+                    'id' => $player->user_id,
+                    'user_id' => $player->user_id,
+
+                    'name' => $player->user?->name ?? 'Unknown Player',
+                    'user_name' => $player->user?->name ?? 'Unknown Player',
+
+                    'email' => $player->user?->email,
+                    'status' => 'CONNECTED',
+                    'is_host' => $player->user_id === $game->host_id,
+                    'joined_at' => $player->joined_at,
+
+                    'credits' => $player->credits,
+                    'total_credits' => $player->total_credits,
+                    'position' => $player->position,
+                ];
+            })->values(),
         ]);
     }
 
-    public function start(Request $request, $id)
+    public function start(Request $request, int $id)
     {
         $user = $request->user();
 
@@ -142,6 +174,12 @@ class GameController extends Controller
             return response()->json([
                 'message' => 'Game not found',
             ], 404);
+        }
+
+        if ($game->players->count() < 2) {
+            return response()->json([
+                'message' => 'At least 2 players are required to start the game',
+            ], 400);
         }
 
         if ($game->host_id !== $user->id) {
@@ -195,7 +233,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function endGame(Request $request, $id)
+    public function endGame(Request $request, int $id)
     {
         $game = Game::find($id);
 
@@ -242,7 +280,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function currentTurn($id)
+    public function currentTurn(Request $request,int $id)
     {
         $game = Game::with('currentTurnUser')->find($id);
 
@@ -251,6 +289,18 @@ class GameController extends Controller
                 'message' => 'Game not found',
             ], 404);
         }
+
+        $isPlayerInGame = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isPlayerInGame) {
+            return response()->json([
+                'message' => 'You are not part of this game',
+            ], 403);
+        }
+
+       
 
         return response()->json([
             'game_id' => $game->id,
@@ -262,7 +312,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function rollDice(Request $request, $id)
+    public function rollDice(Request $request, int $id)
     {
         $user = $request->user();
 
@@ -332,6 +382,8 @@ class GameController extends Controller
         $game->last_dice_roll = $diceRoll;
         $game->save();
 
+        $tile = Tile::where('tile_number', $gamePlayer->position)->first();
+
         event(new DiceRolled(
             $game->id,
             $user->id,
@@ -353,11 +405,13 @@ class GameController extends Controller
             'last_dice_roll' => $diceRoll,
             'current_position' => $gamePlayer->position,
             'new_position' => $gamePlayer->position,
+            'tile_name' => $tile?->tile_name,
+            'tile_type' => $tile?->tile_type,
             'user_id' => $user->id,
         ]);
     }
 
-    public function endTurn(Request $request, $id)
+    public function endTurn(Request $request, int $id)
     {
         $user = $request->user();
 
@@ -450,7 +504,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id)
     {
         $game = Game::find($id);
 
@@ -525,7 +579,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function tileByNumber($id, $tileNumber)
+    public function tileByNumber(Request $request, int $id, int $tileNumber)
     {
         $game = Game::find($id);
 
@@ -533,6 +587,16 @@ class GameController extends Controller
             return response()->json([
                 'message' => 'Game not found',
             ], 404);
+        }
+
+        $isPlayerInGame = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isPlayerInGame) {
+            return response()->json([
+                'message' => 'You are not part of this game',
+            ], 403);
         }
 
         $tile = Tile::where('tile_number', $tileNumber)->first();
@@ -555,28 +619,7 @@ class GameController extends Controller
         ]);
     }
 
-    private function buildLeaderboardPayload($gameId)
-    {
-        $players = \App\Models\GamePlayer::with('user')
-            ->where('game_id', $gameId)
-            ->orderByDesc('total_credits')
-            ->orderByDesc('credits')
-            ->get();
-
-        return $players->values()->map(function ($player, $index) {
-            return [
-                'rank' => $index + 1,
-                'user_id' => $player->user_id,
-                'user_name' => $player->user ? $player->user->name : 'Unknown',
-                'credits' => $player->credits,
-                'total_credits' => $player->total_credits,
-                'position' => $player->position,
-                'last_property_bought_turn' => $player->last_property_bought_turn,
-            ];
-        })->toArray();
-    }
-
-    protected function buildLobbyPlayersPayload(int $gameId): array
+    private function buildLobbyPlayersPayload($gameId)
     {
         $game = Game::with('players.user')->find($gameId);
 
@@ -589,10 +632,42 @@ class GameController extends Controller
             ->values()
             ->map(function ($player) use ($game) {
                 return [
-                    'id' => $player->user?->id ?? $player->user_id,
-                    'name' => $player->user?->name ?? ('Player ' . $player->user_id),
+                    'id' => $player->user_id,
+                    'user_id' => $player->user_id,
+
+                    'name' => $player->user?->name ?? 'Unknown Player',
+                    'user_name' => $player->user?->name ?? 'Unknown Player',
+
+                    'email' => $player->user?->email,
                     'status' => 'CONNECTED',
                     'is_host' => $player->user_id === $game->host_id,
+
+                    'joined_at' => $player->joined_at,
+                    'credits' => $player->credits,
+                    'total_credits' => $player->total_credits,
+                    'position' => $player->position,
+                ];
+            })
+            ->toArray();
+    }
+
+    private function buildLeaderboardPayload($gameId)
+    {
+        return GamePlayer::with('user')
+            ->where('game_id', $gameId)
+            ->orderByDesc('total_credits')
+            ->orderByDesc('credits')
+            ->get()
+            ->values()
+            ->map(function ($player, $index) {
+                return [
+                    'rank' => $index + 1,
+                    'user_id' => $player->user_id,
+                    'user_name' => $player->user?->name ?? 'Unknown',
+                    'credits' => $player->credits,
+                    'total_credits' => $player->total_credits,
+                    'position' => $player->position,
+                    'last_property_bought_turn' => $player->last_property_bought_turn,
                 ];
             })
             ->toArray();

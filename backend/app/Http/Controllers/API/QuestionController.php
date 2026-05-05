@@ -15,7 +15,7 @@ use App\Models\Game;
 
 class QuestionController extends Controller
 {
-    public function scanTile(Request $request, $id)
+    public function scanTile(Request $request, int $id)
     {
         $fields = $request->validate([
             'nfc_value' => 'required|string|exists:tiles,nfc_value',
@@ -123,7 +123,7 @@ class QuestionController extends Controller
         ]);
     }
 
-        public function getQuestionByDifficulty(Request $request, $id, $tileId)
+        public function getQuestionByDifficulty(Request $request, int $id, int $tileId)
     {
         $fields = $request->validate([
             'difficulty' => 'required|string|in:easy,intermediate,hard',
@@ -149,6 +149,12 @@ class QuestionController extends Controller
             return response()->json([
                 'message' => 'It is not your turn',
             ], 403);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before selecting a question',
+            ], 422);
         }
 
         $gamePlayer = GamePlayer::where('game_id', $id)
@@ -220,13 +226,39 @@ class QuestionController extends Controller
         ]);
     }
 
-    public function submitAnswer(Request $request, $id, $questionId)
+    public function submitAnswer(Request $request, int $id, int $questionId)
     {
         $fields = $request->validate([
             'selected_answer' => 'required|string|in:A,B,C,D,a,b,c,d',
         ]);
 
         $user = $request->user();
+
+        $game = Game::find($id);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before answering a question',
+            ], 422);
+        }
 
         $question = Question::with('tile')->find($questionId);
 
@@ -299,7 +331,7 @@ class QuestionController extends Controller
         ]);
     }
 
-    public function scanCard(Request $request, $id)
+    public function scanCard(Request $request, int $id)
     {
         $fields = $request->validate([
             'card_code' => 'required|string|exists:cards,card_code',
@@ -325,6 +357,12 @@ class QuestionController extends Controller
             return response()->json([
                 'message' => 'It is not your turn',
             ], 403);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before scanning a card',
+            ], 422);
         }
 
         $gamePlayer = GamePlayer::where('game_id', $id)
