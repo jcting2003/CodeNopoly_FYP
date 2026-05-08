@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/games/{id}/tiles/by-number/{tileNumber}', [GameController::class, 'tileByNumber']);
     Route::post('/games/{id}/tiles/{tileId}/question', [QuestionController::class, 'getQuestionByDifficulty']);
     Route::post('/games/{id}/questions/{questionId}/submit', [QuestionController::class, 'submitAnswer']);
+    Route::post('/games/{game}/questions/{question}/hint', [QuestionController::class, 'getHint']);
    
     Route::post('/properties/buy', [PropertyController::class, 'buy']);
     Route::post('/properties/buy-house', [PropertyController::class, 'buyHouse']);

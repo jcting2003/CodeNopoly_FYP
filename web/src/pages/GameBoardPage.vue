@@ -19,16 +19,43 @@
       </div>
 
       <div class="space-y-1 flex-1">
-        <div
-          class="bg-white text-purple-700 rounded-xl shadow-sm font-bold flex items-center gap-3 p-3 transition-all duration-300"
+        <button
+          type="button"
+          @click="activeSidebarTab = 'board'"
+          class="w-full rounded-xl font-bold flex items-center gap-3 p-3 transition-all duration-300 text-left"
+          :class="activeSidebarTab === 'board'
+            ? 'bg-white text-purple-700 shadow-sm'
+            : 'text-slate-600 hover:bg-white/70'"
         >
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">
-            group
-          </span>
-          <span>Leaderboard</span>
-        </div>
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>Board</span>
+        </button>
 
-        <div class="mt-4 px-2 space-y-4">
+        <button
+          type="button"
+          @click="activeSidebarTab = 'players'"
+          class="w-full rounded-xl font-bold flex items-center gap-3 p-3 transition-all duration-300 text-left"
+          :class="activeSidebarTab === 'players'
+            ? 'bg-white text-purple-700 shadow-sm'
+            : 'text-slate-600 hover:bg-white/70'"
+        >
+          <span class="material-symbols-outlined">group</span>
+          <span>Players</span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeSidebarTab = 'codeLab'"
+          class="w-full rounded-xl font-bold flex items-center gap-3 p-3 transition-all duration-300 text-left"
+          :class="activeSidebarTab === 'codeLab'
+            ? 'bg-white text-purple-700 shadow-sm'
+            : 'text-slate-600 hover:bg-white/70'"
+        >
+          <span class="material-symbols-outlined">code</span>
+          <span>Code Lab</span>
+        </button>
+
+        <div v-if="activeSidebarTab === 'players'" class="mt-6 px-2 space-y-4">
           <div
             v-for="player in rankedPlayers"
             :key="player.id"
@@ -120,17 +147,6 @@
         <span class="material-symbols-outlined">casino</span>
         {{ rollingDice ? 'Rolling...' : 'Roll Syntax Dice' }}
       </button>
-
-      <div class="pt-4 border-t border-slate-200 space-y-2">
-        <div class="flex items-center gap-3 p-2 text-slate-600 hover:bg-slate-200/50 rounded-lg">
-          <span class="material-symbols-outlined">description</span>
-          <span>Docs</span>
-        </div>
-        <div class="flex items-center gap-3 p-2 text-slate-600 hover:bg-slate-200/50 rounded-lg">
-          <span class="material-symbols-outlined">help</span>
-          <span>Help</span>
-        </div>
-      </div>
     </aside>
 
     <!-- Main Content -->
@@ -183,7 +199,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-12 gap-6">
+        <div v-if="activeSidebarTab === 'board'" class="grid grid-cols-12 gap-6">
           <!-- Dice Engine -->
           <div
             class="col-span-12 lg:col-span-7 bg-surface-container-lowest rounded-[2rem] p-8 dice-shadow relative overflow-hidden"
@@ -407,8 +423,280 @@
           </div>
         </div>
 
-        <!-- Footer Action Bar -->
-        <div class="mt-12 flex justify-end gap-4">
+        <!-- Players Tab -->
+        <div
+          v-if="activeSidebarTab === 'players'"
+          class="bg-surface-container-lowest rounded-[2rem] p-8 dice-shadow"
+        >
+          <h2 class="text-3xl font-headline font-bold text-on-surface mb-6">
+            Players
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="player in rankedPlayers"
+              :key="player.id"
+              class="rounded-2xl bg-white p-5 border border-slate-100"
+            >
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="font-bold text-slate-900">
+                    #{{ player.rank }} {{ player.user_name }}
+                  </p>
+                  <p class="text-sm text-slate-500">
+                    Position: {{ player.position !== null ? player.position : '—' }}
+                  </p>
+                </div>
+
+                <div class="text-right">
+                  <p class="font-bold text-primary">
+                    {{ player.credits }} Cr
+                  </p>
+                  <p class="text-xs text-slate-500">
+                    Total: {{ player.totalCredits }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Code Lab Tab -->
+        <div
+          v-if="activeSidebarTab === 'codeLab'"
+          class="bg-[#EEF4FF] rounded-[2rem] p-8 md:p-10 shadow-xl border border-white/70"
+        >
+          <div v-if="activeQuestion" class="max-w-5xl mx-auto">
+            <div class="flex items-center justify-between gap-4 mb-8">
+              <div class="flex gap-12">
+                <div>
+                  <p class="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-bold">
+                    Challenge Difficulty
+                  </p>
+                  <p class="mt-2 font-bold capitalize text-purple-600 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base">bolt</span>
+                    {{ activeQuestion.difficulty }}
+                  </p>
+                </div>
+
+                <div>
+                  <p class="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-bold">
+                    Execution Reward
+                  </p>
+                  <p class="mt-2 font-bold text-green-600 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base">paid</span>
+                    {{ activeQuestion.credits }} Credits
+                  </p>
+                </div>
+              </div>
+
+              <div class="px-4 py-2 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-base">timer</span>
+                00:45
+              </div>
+            </div>
+
+            <h2 class="text-3xl font-headline font-bold text-slate-800 mb-4">
+              {{ activeTile?.tile_name || 'Code Challenge' }}
+            </h2>
+
+            <p class="text-slate-500 font-medium leading-relaxed mb-6">
+              {{ activeQuestion.question_text }}
+            </p>
+
+            <div
+              v-if="activeQuestion.question_type === 'structured'"
+              class="bg-[#071014] rounded-2xl p-5 mb-8 border border-slate-800"
+            >
+              <div class="flex justify-end gap-2 mb-4">
+                <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+              </div>
+
+              <textarea
+                v-model="structuredAnswer"
+                rows="10"
+                class="w-full bg-transparent text-green-200 font-mono text-sm outline-none resize-none leading-relaxed"
+                placeholder="Write your Python answer here..."
+              ></textarea>
+            </div>
+
+            <div
+              v-else
+              class="bg-[#071014] rounded-2xl p-5 mb-8 border border-slate-800"
+            >
+              <div class="flex justify-end gap-2 mb-4">
+                <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+              </div>
+
+              <pre class="text-green-200 font-mono text-sm whitespace-pre-wrap leading-relaxed">{{ activeQuestion.question_text }}</pre>
+            </div>
+
+            <!-- MCQ Answers -->
+            <div
+              v-if="activeQuestion.question_type === 'mcq'"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+              <button
+                type="button"
+                @click="selectedAnswer = 'A'"
+                class="flex items-center gap-4 rounded-2xl p-4 border-2 bg-white text-left transition-all"
+                :class="selectedAnswer === 'A'
+                  ? 'border-blue-500 bg-blue-100 text-blue-800'
+                  : 'border-transparent hover:border-blue-200'"
+              >
+                <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold">
+                  A
+                </span>
+                <span class="font-semibold">{{ activeQuestion.option_a }}</span>
+              </button>
+
+              <button
+                type="button"
+                @click="selectedAnswer = 'B'"
+                class="flex items-center gap-4 rounded-2xl p-4 border-2 bg-white text-left transition-all"
+                :class="selectedAnswer === 'B'
+                  ? 'border-blue-500 bg-blue-100 text-blue-800'
+                  : 'border-transparent hover:border-blue-200'"
+              >
+                <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold">
+                  B
+                </span>
+                <span class="font-semibold">{{ activeQuestion.option_b }}</span>
+              </button>
+
+              <button
+                type="button"
+                @click="selectedAnswer = 'C'"
+                class="flex items-center gap-4 rounded-2xl p-4 border-2 bg-white text-left transition-all"
+                :class="selectedAnswer === 'C'
+                  ? 'border-blue-500 bg-blue-100 text-blue-800'
+                  : 'border-transparent hover:border-blue-200'"
+              >
+                <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold">
+                  C
+                </span>
+                <span class="font-semibold">{{ activeQuestion.option_c }}</span>
+              </button>
+
+              <button
+                type="button"
+                @click="selectedAnswer = 'D'"
+                class="flex items-center gap-4 rounded-2xl p-4 border-2 bg-white text-left transition-all"
+                :class="selectedAnswer === 'D'
+                  ? 'border-blue-500 bg-blue-100 text-blue-800'
+                  : 'border-transparent hover:border-blue-200'"
+              >
+                <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold">
+                  D
+                </span>
+                <span class="font-semibold">{{ activeQuestion.option_d }}</span>
+              </button>
+            </div>
+
+            <div class="mt-10 space-y-6">
+              <div class="flex items-center justify-between gap-4">
+                <button
+                  type="button"
+                  @click="handleGetHint"
+                  :disabled="loadingHint || !activeQuestion || !!answerResult"
+                  class="text-slate-500 font-bold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <span class="material-symbols-outlined">lightbulb</span>
+                  {{ loadingHint ? 'Generating Hint...' : 'Use Hint' }}
+                </button>
+
+                <button
+                  v-if="!answerResult"
+                  type="button"
+                  @click="handleSubmitAnswer"
+                  :disabled="
+                    submittingAnswer ||
+                    (activeQuestion.question_type === 'mcq' && !selectedAnswer) ||
+                    (activeQuestion.question_type === 'structured' && !structuredAnswer.trim())
+                  "
+                  class="px-10 py-4 rounded-full bg-primary text-white font-bold shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {{ submittingAnswer ? 'Submitting...' : 'Submit Answer' }}
+                </button>
+
+                <button
+                  v-else
+                  type="button"
+                  @click="closeCodeLab"
+                  class="px-10 py-4 rounded-full bg-primary text-white font-bold shadow-lg"
+                >
+                  Continue
+                </button>
+              </div>
+
+              <div
+                v-if="questionHint"
+                class="rounded-2xl bg-yellow-50 border border-yellow-200 p-5 text-yellow-800 max-w-3xl"
+              >
+                <div class="flex items-start gap-3">
+                  <span class="material-symbols-outlined text-yellow-600 mt-0.5">
+                    lightbulb
+                  </span>
+
+                  <div>
+                    <p class="font-bold mb-1">Hint</p>
+                    <p class="text-sm leading-relaxed">
+                      {{ questionHint }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="answerResult" class="mt-8 rounded-2xl p-5 bg-white border">
+              <p
+                class="font-bold"
+                :class="answerResult.is_correct ? 'text-green-600' : 'text-red-600'"
+              >
+                {{ answerResult.is_correct ? 'Correct answer submitted!' : 'Answer submitted.' }}
+              </p>
+
+              <p class="text-sm text-slate-600 mt-2">
+                Earned credits: {{ answerResult.earned_credits }}
+              </p>
+
+              <p v-if="answerResult.feedback" class="text-sm text-slate-600 mt-2">
+                Feedback: {{ answerResult.feedback }}
+              </p>
+
+              <p class="text-sm text-slate-600">
+                Current credits: {{ answerResult.current_credits }}
+              </p>
+            </div>
+          </div>
+
+          <div v-else class="max-w-3xl mx-auto text-center py-20">
+            <div class="w-20 h-20 mx-auto rounded-3xl bg-white flex items-center justify-center shadow-sm mb-6">
+              <span class="material-symbols-outlined text-4xl text-purple-600">code</span>
+            </div>
+
+            <h2 class="text-3xl font-headline font-bold text-slate-800">
+              No Code Challenge Loaded
+            </h2>
+
+            <p class="text-slate-500 mt-3">
+              Roll the dice, scan a tile, and choose a difficulty to load a question here.
+            </p>
+
+            <button
+              type="button"
+              @click="activeSidebarTab = 'board'"
+              class="mt-8 px-8 py-4 rounded-full bg-primary text-white font-bold"
+            >
+              Back to Board
+            </button>
+          </div>
+        </div>
+        <div v-if="activeSidebarTab === 'board'" class="mt-12 flex justify-end gap-4">
           <button
             v-if="canBuyCurrentProperty"
             type="button"
@@ -447,13 +735,6 @@
             class="px-10 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {{ payingRent ? 'Paying...' : `Pay Rent (${currentRentAmount} Cr)` }}
-          </button>
-
-          <button
-            type="button"
-            class="px-10 py-5 bg-surface-container-highest text-on-surface rounded-full font-headline font-bold hover:bg-surface-container-high transition-colors scale-95 active:scale-90 duration-200"
-          >
-            Trade Proposal
           </button>
 
           <button
@@ -558,92 +839,7 @@
       </div>
     </div>
 
-        <div
-      v-if="questionModalOpen && activeQuestion"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-    >
-      <div class="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl">
-        <div class="flex items-start justify-between gap-4 mb-6">
-          <div>
-            <p class="text-sm font-bold text-primary uppercase tracking-widest">
-              {{ activeTile?.tile_name || 'Question Tile' }}
-            </p>
-            <h2 class="text-2xl font-headline font-bold text-slate-900 mt-2">
-              {{ activeQuestion.question_text }}
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            @click="closeQuestionModal"
-            class="text-slate-500 hover:text-slate-900"
-          >
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <div class="space-y-3">
-          <label class="flex items-center gap-3 p-4 rounded-xl border cursor-pointer">
-            <input v-model="selectedAnswer" type="radio" value="A" />
-            <span><strong>A.</strong> {{ activeQuestion.option_a }}</span>
-          </label>
-
-          <label class="flex items-center gap-3 p-4 rounded-xl border cursor-pointer">
-            <input v-model="selectedAnswer" type="radio" value="B" />
-            <span><strong>B.</strong> {{ activeQuestion.option_b }}</span>
-          </label>
-
-          <label class="flex items-center gap-3 p-4 rounded-xl border cursor-pointer">
-            <input v-model="selectedAnswer" type="radio" value="C" />
-            <span><strong>C.</strong> {{ activeQuestion.option_c }}</span>
-          </label>
-
-          <label class="flex items-center gap-3 p-4 rounded-xl border cursor-pointer">
-            <input v-model="selectedAnswer" type="radio" value="D" />
-            <span><strong>D.</strong> {{ activeQuestion.option_d }}</span>
-          </label>
-        </div>
-
-        <div class="mt-6 flex items-center justify-between">
-          <div class="text-sm text-slate-500">
-            Reward: <span class="font-bold text-tertiary">{{ activeQuestion.credits }} Cr</span>
-          </div>
-
-        <button
-          v-if="!answerResult"
-          type="button"
-          @click="handleSubmitAnswer"
-          :disabled="submittingAnswer || !selectedAnswer"
-          class="px-6 py-3 rounded-full bg-primary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {{ submittingAnswer ? 'Submitting...' : 'Submit Answer' }}
-        </button>
-
-        <button
-          v-else
-          type="button"
-          @click="closeQuestionModal"
-          class="px-6 py-3 rounded-full bg-primary text-white font-bold"
-        >
-          Continue
-        </button>
-        </div>
-
-        <div v-if="answerResult" class="mt-6 rounded-2xl p-4 border">
-          <p class="font-bold" :class="answerResult.is_correct ? 'text-green-600' : 'text-red-600'">
-            {{ answerResult.is_correct ? 'Correct answer submitted!' : 'Answer submitted.' }}
-          </p>
-          <p class="text-sm text-slate-600 mt-2">
-            Earned credits: {{ answerResult.earned_credits }}
-          </p>
-          <p class="text-sm text-slate-600">
-            Current credits: {{ answerResult.current_credits }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-        <div
+      <div
       v-if="cardResultModalOpen && cardResult"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
     >
@@ -825,11 +1021,12 @@ type ScanTileResponse = {
 
 type QuestionData = {
   id: number
+  question_type: 'mcq' | 'structured'
   question_text: string
-  option_a: string
-  option_b: string
-  option_c: string
-  option_d: string
+  option_a: string | null
+  option_b: string | null
+  option_c: string | null
+  option_d: string | null
   credits: number
   difficulty: string
 }
@@ -853,6 +1050,7 @@ type SubmitAnswerResponse = {
   earned_credits: number
   current_credits: number
   total_credits: number
+  feedback?: string
 }
 
 type GameProperty = {
@@ -1008,7 +1206,6 @@ const cardQrInputValue = ref('')
 const cardResultModalOpen = ref(false)
 const cardResult = ref<ScanCardResponse | null>(null)
 
-const questionModalOpen = ref(false)
 const activeTile = ref<ScanTileResponse['tile'] | null>(null)
 const activeQuestion = ref<QuestionData | null>(null)
 const selectedAnswer = ref('')
@@ -1017,6 +1214,10 @@ const answerResult = ref<SubmitAnswerResponse | null>(null)
 const difficultyModalOpen = ref(false)
 const availableDifficulties = ref<string[]>([])
 const selectedDifficulty = ref('')
+const activeSidebarTab = ref<'board' | 'players' | 'codeLab' >('board')
+const structuredAnswer = ref('')
+const loadingHint = ref(false)
+const questionHint = ref('')
 
 type ErrorResponse = {
   message?: string
@@ -1362,6 +1563,8 @@ const handleScanTile = async () => {
     scanningTile.value = true
     answerResult.value = null
     selectedAnswer.value = ''
+    structuredAnswer.value = ''
+    questionHint.value = ''
 
     const response = await api.post<ScanTileResponse>(`/api/games/${gameId}/scan-tile`, {
       nfc_value: qrInputValue.value.trim(),
@@ -1371,7 +1574,6 @@ const handleScanTile = async () => {
     availableDifficulties.value = response.data.available_difficulties
     selectedDifficulty.value = ''
     answerResult.value = null
-    questionModalOpen.value = false
     difficultyModalOpen.value = true
 
     currentTile.value = response.data.tile.tile_name
@@ -1443,16 +1645,42 @@ const handleChooseDifficulty = async () => {
     )
 
     activeQuestion.value = response.data.question
+    questionHint.value = ''
+    selectedAnswer.value = ''
+    structuredAnswer.value = ''
+    answerResult.value = null
     executionCost.value = `${response.data.question.credits} Cr`
     runtimeYield.value = response.data.question.difficulty
     tileDescription.value = response.data.question.question_text
 
     difficultyModalOpen.value = false
-    questionModalOpen.value = true
+    activeSidebarTab.value = 'codeLab'
   } catch (error: unknown) {
     showError(error, 'Failed to get question.')
   } finally {
     scanningTile.value = false
+  }
+}
+
+const handleGetHint = async () => {
+  if (!activeQuestion.value) {
+    toast.error('No active question found.')
+    return
+  }
+
+  try {
+    loadingHint.value = true
+    questionHint.value = ''
+
+    const response = await api.post<{ hint: string }>(
+      `/api/games/${gameId}/questions/${activeQuestion.value.id}/hint`
+    )
+
+    questionHint.value = response.data.hint
+  } catch (error: unknown) {
+    showError(error, 'Failed to get hint.')
+  } finally {
+    loadingHint.value = false
   }
 }
 
@@ -1466,8 +1694,13 @@ const handleSubmitAnswer = async () => {
     return
   }
 
-  if (!selectedAnswer.value) {
-    toast.warning('Please select an answer.')
+  const answerValue =
+    activeQuestion.value.question_type === 'mcq'
+      ? selectedAnswer.value
+      : structuredAnswer.value
+
+  if (!answerValue.trim()) {
+    toast.warning('Please answer the question before submitting.')
     return
   }
 
@@ -1477,7 +1710,7 @@ const handleSubmitAnswer = async () => {
     const response = await api.post<SubmitAnswerResponse>(
       `/api/games/${gameId}/questions/${activeQuestion.value.id}/submit`,
       {
-        selected_answer: selectedAnswer.value,
+        answer: answerValue,
       }
     )
 
@@ -1488,6 +1721,8 @@ const handleSubmitAnswer = async () => {
     } else {
       toast.info('Answer submitted. No credits earned.')
     }
+
+    await fetchLeaderboard()
   } catch (error: unknown) {
     showError(error, 'Failed to submit answer.')
   } finally {
@@ -1501,16 +1736,18 @@ const closeCardResultModal = () => {
   cardQrInputValue.value = ''
 }
 
-const closeQuestionModal = () => {
-  questionModalOpen.value = false
+const closeCodeLab = () => {
   difficultyModalOpen.value = false
   activeTile.value = null
   activeQuestion.value = null
   selectedAnswer.value = ''
+  structuredAnswer.value = ''
   selectedDifficulty.value = ''
   availableDifficulties.value = []
   answerResult.value = null
   qrInputValue.value = ''
+  activeSidebarTab.value = 'board'
+  questionHint.value = ''
 }
 
 const handleBuyProperty = async () => {

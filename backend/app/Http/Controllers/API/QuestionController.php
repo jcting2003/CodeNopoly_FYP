@@ -11,6 +11,7 @@ use App\Models\PlayerAnswer;
 use Illuminate\Http\Request;
 use App\Models\Card;
 use App\Models\Game;
+use App\Services\QwenAnswerValidationService;
 
 
 class QuestionController extends Controller
@@ -23,7 +24,7 @@ class QuestionController extends Controller
 
         $user = $request->user();
 
-                $game = \App\Models\Game::find($id);
+        $game = \App\Models\Game::find($id);
 
         if (! $game) {
             return response()->json([
@@ -123,7 +124,7 @@ class QuestionController extends Controller
         ]);
     }
 
-        public function getQuestionByDifficulty(Request $request, int $id, int $tileId)
+    public function getQuestionByDifficulty(Request $request, int $id, int $tileId)
     {
         $fields = $request->validate([
             'difficulty' => 'required|string|in:easy,intermediate,hard',
@@ -215,21 +216,92 @@ class QuestionController extends Controller
             ],
             'question' => [
                 'id' => $question->id,
+                'question_type' => $question->question_type,
                 'question_text' => $question->question_text,
+
                 'option_a' => $question->option_a,
                 'option_b' => $question->option_b,
                 'option_c' => $question->option_c,
                 'option_d' => $question->option_d,
+
                 'credits' => $question->credits,
                 'difficulty' => $question->difficulty,
             ],
         ]);
     }
 
+    public function getHint(Request $request, int $id, int $questionId)
+    {
+        $user = $request->user();
+
+        $game = Game::find($id);
+
+        if (! $game) {
+            return response()->json([
+                'message' => 'Game not found',
+            ], 404);
+        }
+
+        if ($game->status !== 'started') {
+            return response()->json([
+                'message' => 'Game has not started yet',
+            ], 400);
+        }
+
+        if ($game->current_turn_user_id !== $user->id) {
+            return response()->json([
+                'message' => 'It is not your turn',
+            ], 403);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before requesting a hint',
+            ], 422);
+        }
+
+        $question = Question::with('tile')->find($questionId);
+
+        if (! $question) {
+            return response()->json([
+                'message' => 'Question not found',
+            ], 404);
+        }
+
+        $gamePlayer = GamePlayer::where('game_id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $gamePlayer) {
+            return response()->json([
+                'message' => 'Player is not part of this game',
+            ], 404);
+        }
+
+        if (! $question->tile || (int) $question->tile->tile_number !== (int) $gamePlayer->position) {
+            return response()->json([
+                'message' => 'Question does not match the player current tile',
+            ], 422);
+        }
+
+        if ($question->question_type !== 'structured') {
+            return response()->json([
+                'hint' => 'Read each option carefully and eliminate answers that do not match the Python concept.',
+            ]);
+        }
+
+        $qwenService = app(QwenAnswerValidationService::class);
+        $result = $qwenService->generateHint($question);
+
+        return response()->json([
+            'hint' => $result['hint'],
+        ]);
+    }
+
     public function submitAnswer(Request $request, int $id, int $questionId)
     {
         $fields = $request->validate([
-            'selected_answer' => 'required|string|in:A,B,C,D,a,b,c,d',
+            'answer' => 'required|string',
         ]);
 
         $user = $request->user();
@@ -295,11 +367,36 @@ class QuestionController extends Controller
             ], 422);
         }
 
-        $selectedAnswer = strtoupper(trim($fields['selected_answer']));
-        $correctAnswer = strtoupper(trim($question->correct_answer));
+        $studentAnswer = trim($fields['answer']);
 
-        $isCorrect = $selectedAnswer === $correctAnswer;
-        $earnedCredits = $isCorrect ? $question->credits : 0;
+        if ($question->question_type === 'mcq') {
+            $selectedAnswer = strtoupper($studentAnswer);
+
+            if (! in_array($selectedAnswer, ['A', 'B', 'C', 'D'])) {
+                return response()->json([
+                    'message' => 'Invalid MCQ answer.',
+                ], 422);
+            }
+
+            $correctAnswer = strtoupper(trim($question->correct_answer));
+            $isCorrect = $selectedAnswer === $correctAnswer;
+            $earnedCredits = $isCorrect ? $question->credits : 0;
+
+            $feedback = $isCorrect
+                ? 'Correct answer!'
+                : 'Incorrect answer.';
+        } else {
+            $selectedAnswer = $studentAnswer;
+
+            $qwenService = app(QwenAnswerValidationService::class);
+            $aiResult = $qwenService->validateAnswer($question, $studentAnswer);
+
+            $isCorrect = (bool) $aiResult['is_correct'];
+
+            $earnedCredits = $isCorrect ? (int) $question->credits : 0;
+
+            $feedback = $aiResult['feedback'] ?? 'Answer checked by AI.';
+        }
 
         PlayerAnswer::create([
             'game_id' => $id,
@@ -308,6 +405,7 @@ class QuestionController extends Controller
             'selected_answer' => $selectedAnswer,
             'is_correct' => $isCorrect,
             'earned_credits' => $earnedCredits,
+            'feedback' => $feedback,
             'answered_at' => now(),
         ]);
 
@@ -328,6 +426,7 @@ class QuestionController extends Controller
             'earned_credits' => $earnedCredits,
             'current_credits' => $gamePlayer->credits,
             'total_credits' => $gamePlayer->total_credits,
+            'feedback' => $feedback,
         ]);
     }
 
@@ -479,7 +578,31 @@ class QuestionController extends Controller
         ]);
     }
 
-        protected function buildLeaderboardPayload(int $gameId): array
+    // private function checkStructuredAnswer(string $studentAnswer, Question $question): bool //can delete after qwen work
+    // {
+    //     $answer = strtolower($studentAnswer);
+    //     $questionText = strtolower($question->question_text);
+
+    //     // Temporary rule for if-else questions
+    //     if (str_contains($questionText, 'if') || str_contains($questionText, 'if-else')) {
+    //         return str_contains($answer, 'if')
+    //             && str_contains($answer, 'else');
+    //     }
+
+    //     // Temporary rule for loop questions
+    //     if (str_contains($questionText, 'loop') || str_contains($questionText, 'for loop')) {
+    //         return str_contains($answer, 'for') || str_contains($answer, 'while');
+    //     }
+
+    //     // Temporary rule for function questions
+    //     if (str_contains($questionText, 'function')) {
+    //         return str_contains($answer, 'def');
+    //     }
+
+    //     return false;
+    // }
+
+    protected function buildLeaderboardPayload(int $gameId): array
     {
         return GamePlayer::with('user')
             ->where('game_id', $gameId)

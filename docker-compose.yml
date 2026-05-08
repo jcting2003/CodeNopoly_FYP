@@ -1,0 +1,71 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: codenopoly-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: codenopoly
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: secret
+      MYSQL_USER: codenopoly_user
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - codenopoly-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codenopoly-backend
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+      - ollama
+    networks:
+      - codenopoly-network
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: codenopoly-frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - codenopoly-network
+    command: npm run dev -- --host 0.0.0.0
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: codenopoly-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - codenopoly-network
+
+volumes:
+  mysql_data:
+  ollama_data:
+
+networks:
+  codenopoly-network:
+    driver: bridge

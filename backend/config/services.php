@@ -30,4 +30,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'ollama' => [
+        'base_url' => env('OLLAMA_BASE_URL', 'http://ollama:11434'),
+        'model' => env('OLLAMA_MODEL', 'qwen2.5-coder:1.5b'),
+    ],
+
 ];

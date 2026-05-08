@@ -16,6 +16,7 @@ class PlayerAnswer extends Model
         'selected_answer',
         'is_correct',
         'earned_credits',
+        'feedback',
         'answered_at',
     ];
     protected function casts():array{
