@@ -80,7 +80,7 @@ export default function GameLobbyScreen() {
   }, [gameStatus])
 
   const fetchGame = async () => {
-    const response = await api.get<GameResponse>(`/api/games/${gameId}`)
+    const response = await api.get<GameResponse>(`/games/${gameId}`)
     const foundGame = response.data.game
 
     setGameCode(foundGame.game_code || '')
@@ -138,7 +138,7 @@ export default function GameLobbyScreen() {
   }
 
   const fetchPlayers = async (currentHostId: number | null) => {
-    const response = await api.get<PlayersResponse>(`/api/games/${gameId}/players`)
+    const response = await api.get<PlayersResponse>(`/games/${gameId}/players`)
 
     const rawPlayers = Array.isArray(response.data)
       ? response.data
@@ -181,7 +181,7 @@ export default function GameLobbyScreen() {
     try {
       setStartingGame(true)
 
-      await api.post(`/api/games/${gameId}/start`)
+      await api.post(`/games/${gameId}/start`)
 
       router.replace({
         pathname: '/game-session/[id]',

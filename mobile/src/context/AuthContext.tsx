@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true)
 
 const refreshUser = async () => {
-  const response = await api.get<UserResponse>('/api/user')
+  const response = await api.get<UserResponse>('/user')
 
   if ('user' in response.data) {
     setUser(response.data.user)
@@ -96,16 +96,8 @@ const refreshUser = async () => {
 }
 
   const register = async (payload: RegisterPayload) => {
-    await api.post('/api/register', {
+    const response = await api.post<RegisterResponse>('/register', {
       ...payload,
-      device_name: 'expo_mobile',
-    })
-  }
-
-  const login = async (email: string, password: string) => {
-    const response = await api.post<LoginResponse>('/api/login', {
-      email,
-      password,
       device_name: `expo_mobile_${Platform.OS}`,
     })
 
@@ -117,18 +109,33 @@ const refreshUser = async () => {
     setUser(response.data.user)
   }
 
-  const logout = async () => {
-    try {
-      await api.post('/api/logout')
-    } catch {
-      // Ignore backend logout failure and clear local session anyway.
-    }
+const login = async (email: string, password: string) => {
+  const response = await api.post<LoginResponse>('/login', {
+    email,
+    password,
+    device_name: `expo_mobile_${Platform.OS}`,
+  })
 
-    await removeStoredToken()
-    setAuthToken(null)
-    setToken(null)
-    setUser(null)
+  const newToken = response.data.token
+
+  await saveToken(newToken)
+  setAuthToken(newToken)
+  setToken(newToken)
+  setUser(response.data.user)
+}
+
+const logout = async () => {
+  try {
+    await api.post('/logout')
+  } catch {
+    // Ignore backend logout failure and clear local session anyway.
   }
+
+  await removeStoredToken()
+  setAuthToken(null)
+  setToken(null)
+  setUser(null)
+}
 
   useEffect(() => {
     const loadSession = async () => {

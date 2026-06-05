@@ -44,7 +44,7 @@ export default function JoinGameScreen() {
     try {
       setJoining(true)
 
-      const response = await api.post<JoinGameResponse>('/api/games/join', {
+      const response = await api.post<JoinGameResponse>('/games/join', {
         game_code: cleanedCode,
       })
 

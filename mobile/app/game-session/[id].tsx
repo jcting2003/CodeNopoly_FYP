@@ -268,7 +268,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
   }
 
   const fetchGame = async () => {
-    const response = await api.get<GameShowResponse>(`/api/games/${gameId}`)
+    const response = await api.get<GameShowResponse>(`/games/${gameId}`)
     const foundGame = response.data.game
 
     setGameCode(foundGame.game_code || '')
@@ -294,7 +294,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
   }
 
   const fetchTurn = async () => {
-    const response = await api.get<CurrentTurnResponse>(`/api/games/${gameId}/turn`)
+    const response = await api.get<CurrentTurnResponse>(`/games/${gameId}/turn`)
     const data = response.data
 
     const nextTurnUserId = data.current_turn_user_id ?? null
@@ -314,7 +314,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
   }
 
   const fetchLeaderboard = async () => {
-    const response = await api.get<LeaderboardResponse>(`/api/games/${gameId}/leaderboard`)
+    const response = await api.get<LeaderboardResponse>(`/games/${gameId}/leaderboard`)
     const data = response.data
 
     setGameCode(data.game_code || '')
@@ -339,7 +339,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
   }
 
   const fetchProperties = async () => {
-    const response = await api.get<GamePropertiesResponse>(`/api/games/${gameId}/properties`)
+    const response = await api.get<GamePropertiesResponse>(`/games/${gameId}/properties`)
     setProperties(response.data.properties || [])
   }
 
@@ -386,7 +386,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
       setRollingDice(true)
 
       const response = await api.post<RollDiceResponse>(
-        `/api/games/${gameId}/roll-dice`
+        `/games/${gameId}/roll-dice`
       )
 
       const data = response.data
@@ -464,7 +464,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     try {
       setEndingTurn(true)
 
-      await api.post(`/api/games/${gameId}/end-turn`)
+      await api.post(`/games/${gameId}/end-turn`)
 
       setDiceOne(null)
       setDiceTwo(null)
@@ -497,7 +497,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     try {
       setBuyingProperty(true)
 
-      const response = await api.post<BuyPropertyResponse>('/api/properties/buy', {
+      const response = await api.post<BuyPropertyResponse>('/properties/buy', {
         game_id: gameId,
         property_id: currentProperty.property_id,
       })
@@ -530,7 +530,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     try {
       setPayingRent(true)
 
-      const response = await api.post<PayRentResponse>('/api/properties/pay-rent', {
+      const response = await api.post<PayRentResponse>('/properties/pay-rent', {
         game_id: gameId,
         property_id: currentProperty.property_id,
       })
@@ -563,7 +563,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     try {
       setBuyingHouse(true)
 
-      const response = await api.post<BuyHouseResponse>('/api/properties/buy-house', {
+      const response = await api.post<BuyHouseResponse>('/properties/buy-house', {
         game_id: gameId,
         property_id: currentProperty.property_id,
       })
@@ -600,7 +600,7 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     try {
       setBuyingHotel(true)
 
-      const response = await api.post<BuyHotelResponse>('/api/properties/buy-hotel', {
+      const response = await api.post<BuyHotelResponse>('/properties/buy-hotel', {
         game_id: gameId,
         property_id: currentProperty.property_id,
       })

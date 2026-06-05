@@ -58,7 +58,7 @@ export default function FinalLeaderboardScreen() {
       setLoading(true)
 
       const response = await api.get<LeaderboardResponse>(
-        `/api/games/${gameId}/leaderboard`
+        `/games/${gameId}/leaderboard`
       )
 
       setGameCode(response.data.game_code || '')
