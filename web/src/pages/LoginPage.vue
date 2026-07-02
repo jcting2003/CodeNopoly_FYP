@@ -260,8 +260,15 @@ const handleLogin = async () => {
       email: loginForm.email,
       password: loginForm.password,
     })
+    console.log('Logged in user:', authStore.user)
+    console.log('User role:', authStore.user?.role)
+    
 
-    router.push('/dashboard')
+    if (authStore.user?.role === 'admin') {
+      router.push('/admin/dashboard')
+    } else {
+      router.push('/dashboard')
+    }
   } catch (error) {
     console.error('Login failed:', error)
   }

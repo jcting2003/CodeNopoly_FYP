@@ -30,7 +30,7 @@ class PropertyController extends Controller
             ], 404);
         }
 
-        $property = Property::find($fields['property_id']);
+        $property = Property::with('tile')->find($fields['property_id']);
 
         $gameProperty = GameProperty::where('game_id', $fields['game_id'])
             ->where('property_id', $fields['property_id'])
@@ -89,6 +89,23 @@ class PropertyController extends Controller
             return response()->json([
                 'message' => 'You must roll the dice before buying a property',
             ], 422);
+        }
+        
+        if (
+            $gamePlayer->last_question_answered_turn !== null &&
+            (int) $gamePlayer->last_question_answered_turn === (int) $game->turn_number
+        ) {
+            return response()->json([
+                'message' => 'You cannot buy a property after answering a question in the same turn',
+            ], 422);
+        }
+
+        if (! $property->tile || (int) $gamePlayer->position !== (int) $property->tile->tile_number) {
+            return response()->json([
+                'message' => 'You can only buy the property you are currently standing on',
+                'current_position' => $gamePlayer->position,
+                'property_tile_number' => $property->tile?->tile_number,
+            ], 403);
         }
 
         $gamePlayer->credits -= $property->cost;
@@ -385,7 +402,7 @@ class PropertyController extends Controller
             ], 404);
         }
 
-        $property = Property::find($fields['property_id']);
+        $property = Property::with('tile')->find($fields['property_id']);
 
         if ($gameProperty->has_hotel) {
             $rentAmount = $property->rent_hotel;
@@ -433,6 +450,14 @@ class PropertyController extends Controller
             return response()->json([
                 'message' => 'You must roll the dice before paying rent',
             ], 422);
+        }
+
+        if (! $property->tile || (int) $tenant->position !== (int) $property->tile->tile_number) {
+            return response()->json([
+                'message' => 'You can only pay rent for the property you are currently standing on',
+                'current_position' => $tenant->position,
+                'property_tile_number' => $property->tile?->tile_number,
+            ], 403);
         }
 
         if (
@@ -483,23 +508,27 @@ class PropertyController extends Controller
             ], 404);
         }
 
+        $isHost = (int) $game->host_id === (int) $request->user()->id;
+
         $isPlayerInGame = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $request->user()->id)
             ->exists();
 
-        if (! $isPlayerInGame) {
+        if (! $isHost && ! $isPlayerInGame) {
             return response()->json([
                 'message' => 'You are not part of this game',
             ], 403);
         }
 
+        $gamePropertiesByPropertyId = GameProperty::with('owner')
+            ->where('game_id', $id)
+            ->get()
+            ->keyBy('property_id');
+
         $properties = Property::with('tile')
             ->get()
-            ->map(function ($property) use ($id) {
-                $gameProperty = GameProperty::with('owner')
-                    ->where('game_id', $id)
-                    ->where('property_id', $property->id)
-                    ->first();
+            ->map(function ($property) use ($gamePropertiesByPropertyId) {
+                $gameProperty = $gamePropertiesByPropertyId->get($property->id);
 
                 return [
                     'game_property_id' => $gameProperty ? ($gameProperty->game_id . '-' . $gameProperty->property_id) : null,

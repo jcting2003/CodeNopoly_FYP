@@ -141,7 +141,7 @@
       <button
         type="button"
         @click="handleRollDice"
-        :disabled="rollingDice || !isCurrentUserTurn || hasRolledThisTurn"
+        :disabled="isHostOnlyView || rollingDice || !isCurrentUserTurn || hasRolledThisTurn"
         class="w-full py-4 bg-primary text-white rounded-2xl font-headline font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mb-4 hover:bg-primary-dim transition-all active:scale-95 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span class="material-symbols-outlined">casino</span>
@@ -181,27 +181,83 @@
           <div class="flex gap-4">
             <div class="px-6 py-3 bg-surface-container-low rounded-2xl flex flex-col items-end">
               <span class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">
-                Position
+                {{ isHostOnlyView ? 'Players' : 'Position' }}
               </span>
               <span class="text-2xl font-headline font-bold text-on-surface">
-                {{ currentPositionLabel }}
+                {{ isHostOnlyView ? rankedPlayers.length : currentPositionLabel }}
               </span>
             </div>
 
             <div class="px-6 py-3 bg-surface-container-low rounded-2xl flex flex-col items-end">
               <span class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">
-                Current Tile
+                {{ isHostOnlyView ? 'Current Turn' : 'Current Tile' }}
               </span>
               <span class="text-2xl font-headline font-bold text-secondary">
-                {{ resolvedCurrentTile || '—' }}
+                {{ isHostOnlyView ? (currentTurnName || '—') : (resolvedCurrentTile || '—') }}
               </span>
             </div>
           </div>
         </div>
 
         <div v-if="activeSidebarTab === 'board'" class="grid grid-cols-12 gap-6">
+          <div
+            v-if="isHostOnlyView"
+            class="col-span-12 bg-surface-container-lowest rounded-[2rem] p-8 dice-shadow"
+          >
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h2 class="text-2xl font-headline font-bold text-on-surface">
+                  Host Live Monitor
+                </h2>
+                <p class="text-sm text-slate-500 mt-1">
+                  You are monitoring the game as host. Player actions are disabled on this screen.
+                </p>
+              </div>
+
+              <span class="px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-xs font-bold uppercase">
+                Host View
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div
+                v-for="player in rankedPlayers"
+                :key="player.id"
+                class="rounded-2xl border border-slate-100 bg-white p-5"
+                :class="player.isCurrentTurn ? 'ring-2 ring-primary' : ''"
+              >
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <p class="font-bold text-slate-900">
+                      #{{ player.rank }} {{ player.user_name }}
+                    </p>
+                    <p class="text-sm text-slate-500">
+                      Position: {{ player.position !== null ? player.position : '—' }}
+                    </p>
+                  </div>
+
+                  <div class="text-right">
+                    <p class="font-bold text-primary">
+                      {{ player.credits }} Cr
+                    </p>
+                    <p class="text-xs text-slate-500">
+                      Total: {{ player.totalCredits }}
+                    </p>
+                  </div>
+                </div>
+
+                <p
+                  v-if="player.isCurrentTurn"
+                  class="mt-4 text-xs uppercase tracking-wider text-primary font-bold"
+                >
+                  Current Turn
+                </p>
+              </div>
+            </div>
+          </div>
           <!-- Dice Engine -->
           <div
+            v-if="!isHostOnlyView"
             class="col-span-12 lg:col-span-7 bg-surface-container-lowest rounded-[2rem] p-8 dice-shadow relative overflow-hidden"
           >
             <div class="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
@@ -261,6 +317,7 @@
 
           <!-- Sync Portal -->
           <div
+            v-if="!isHostOnlyView"
             class="col-span-12 lg:col-span-5 bg-tertiary-container rounded-[2rem] p-8 flex flex-col justify-between relative overflow-hidden"
           >
             <div class="relative z-10">
@@ -293,7 +350,7 @@
                 <button
                   type="button"
                   @click="handleScanTile"
-                  :disabled="scanningTile || !isCurrentUserTurn || !hasRolledThisTurn"
+                  :disabled="isHostOnlyView || scanningTile || !isCurrentUserTurn || !hasRolledThisTurn"
                   class="w-full px-4 py-3 rounded-xl bg-tertiary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {{ scanningTile ? 'Scanning...' : 'Scan Tile (QR Test)' }}
@@ -313,23 +370,23 @@
               class="p-6 bg-white/60 backdrop-blur-xl rounded-2xl border-2 border-white/50 mb-6 space-y-4"
             >
               <p class="text-on-tertiary-container font-medium">
-                Card detected tile. Scan the physical Chance / Community Chest card.
+                You landed on a card tile. Physically draw one card from the matching deck, then scan that card to reveal its effect.
               </p>
 
               <input
                 v-model="cardQrInputValue"
                 type="text"
-                placeholder="Enter card QR value for testing (e.g. CC_001)"
+                placeholder="Enter any matching deck QR value to confirm the draw"
                 class="w-full px-4 py-3 rounded-xl border border-white/50 bg-white text-slate-800 outline-none"
               />
 
               <button
                 type="button"
                 @click="handleScanCard"
-                :disabled="scanningCard || !isCurrentUserTurn || !hasRolledThisTurn"
+                :disabled="isHostOnlyView || scanningCard || !isCurrentUserTurn || !hasRolledThisTurn"
                 class="w-full px-4 py-3 rounded-xl bg-primary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {{ scanningCard ? 'Scanning Card...' : 'Scan Card (Test)' }}
+                {{ scanningCard ? 'Scanning Card...' : 'Scan Drawn Card' }}
               </button>
             </div>
 
@@ -428,23 +485,46 @@
           v-if="activeSidebarTab === 'players'"
           class="bg-surface-container-lowest rounded-[2rem] p-8 dice-shadow"
         >
-          <h2 class="text-3xl font-headline font-bold text-on-surface mb-6">
-            Players
-          </h2>
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-3xl font-headline font-bold text-on-surface">
+                Players
+              </h2>
+              <p class="text-sm text-slate-500 mt-1">
+                Live player status for this game session.
+              </p>
+            </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <span class="px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
+              {{ rankedPlayers.length }} Joined
+            </span>
+          </div>
+
+          <div
+            v-if="rankedPlayers.length > 0"
+            class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+          >
             <div
               v-for="player in rankedPlayers"
               :key="player.id"
               class="rounded-2xl bg-white p-5 border border-slate-100"
+              :class="player.isCurrentTurn ? 'ring-2 ring-primary' : ''"
             >
               <div class="flex items-center justify-between">
                 <div>
                   <p class="font-bold text-slate-900">
                     #{{ player.rank }} {{ player.user_name }}
                   </p>
+
                   <p class="text-sm text-slate-500">
                     Position: {{ player.position !== null ? player.position : '—' }}
+                  </p>
+
+                  <p
+                    v-if="player.isCurrentTurn"
+                    class="mt-2 text-xs uppercase tracking-wider text-primary font-bold"
+                  >
+                    Current Turn
                   </p>
                 </div>
 
@@ -458,6 +538,27 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <div
+            v-else
+            class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-10 text-center"
+          >
+            <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-slate-500">
+              <span class="material-symbols-outlined text-3xl">group</span>
+            </div>
+
+            <h3 class="text-xl font-headline font-bold text-slate-800">
+              No players have joined yet
+            </h3>
+
+            <p class="mt-2 text-sm text-slate-500">
+              Share the game code with players so they can join from the mobile app.
+            </p>
+
+            <p class="mt-4 text-2xl font-headline font-bold text-primary">
+              {{ gameCode || '—' }}
+            </p>
           </div>
         </div>
 
@@ -918,6 +1019,8 @@ type LeaderboardPlayer = {
   total_credits: number
   position?: number
   last_property_bought_turn?: number | null
+  last_question_answered_turn?: number | null
+  last_card_scanned_turn?: number | null
 }
 
 type LeaderboardResponse = {
@@ -970,6 +1073,8 @@ type RankedPlayer = {
   rankColor: string
   progressColor: string
   progressWidth: number
+  last_question_answered_turn?: number | null
+  last_card_scanned_turn?: number | null
 }
 
 type EndTurnResponse = {
@@ -1149,6 +1254,20 @@ type TileByNumberResponse = {
   }
 }
 
+type PlayersResponse = {
+  players: {
+    id: number
+    user_id: number
+    name?: string
+    user_name?: string
+    credits: number
+    total_credits: number
+    position: number | null
+    last_question_answered_turn?: number | null
+    last_card_scanned_turn?: number | null
+  }[]
+}
+
 const endingGame = ref(false)
 
 const route = useRoute()
@@ -1197,6 +1316,7 @@ const buyingHotel = ref(false)
 const rentPaidThisTurn = ref(false)
 const houseBoughtThisTurn = ref(false)
 const propertyBoughtThisTurn = ref(false)
+const questionAnsweredThisTurn = ref(false)
 
 const scanningTile = ref(false)
 const qrInputValue = ref('')
@@ -1218,6 +1338,7 @@ const activeSidebarTab = ref<'board' | 'players' | 'codeLab' >('board')
 const structuredAnswer = ref('')
 const loadingHint = ref(false)
 const questionHint = ref('')
+const tileCache = ref<Record<number, TileByNumberResponse['tile']>>({})
 
 type ErrorResponse = {
   message?: string
@@ -1243,6 +1364,14 @@ const isCurrentUserHost = computed(() => {
   return hostId.value !== null && hostId.value === authStore.user?.id
 })
 
+const isCurrentUserPlayer = computed(() => {
+  return rankedPlayers.value.some((player) => player.id === authStore.user?.id)
+})
+
+const isHostOnlyView = computed(() => {
+  return isCurrentUserHost.value && !isCurrentUserPlayer.value
+})
+
 const currentProperty = computed(() => {
   if (currentPosition.value === null) return null
 
@@ -1258,11 +1387,25 @@ const resolvedCurrentTile = computed(() => {
   return currentTile.value || ''
 })
 
+const currentPlayer = computed(() => {
+  return rankedPlayers.value.find((player) => player.id === authStore.user?.id) || null
+})
+
+const hasAnsweredQuestionThisTurn = computed(() => {
+  return (
+    currentPlayer.value?.last_question_answered_turn !== null &&
+    currentPlayer.value?.last_question_answered_turn !== undefined &&
+    currentPlayer.value.last_question_answered_turn === turnNumber.value
+  )
+})
+
 const canBuyCurrentProperty = computed(() => {
   return (
     !!currentProperty.value &&
     isCurrentUserTurn.value &&
+    !questionAnsweredThisTurn.value &&
     hasRolledThisTurn.value &&
+    !hasAnsweredQuestionThisTurn.value &&
     currentProperty.value.owner_user_id === null
   )
 })
@@ -1359,10 +1502,23 @@ const statusBadgeClass = computed(() => {
 })
 
 const refreshBoard = async () => {
-  await fetchGame()
-  await fetchCurrentTurn()
-  await fetchProperties()
-  await fetchLeaderboard()
+  try {
+    await Promise.all([
+      fetchGame(),
+      fetchCurrentTurn(),
+      fetchProperties(),
+    ])
+
+    await fetchLeaderboard()
+  } catch (error) {
+    console.error('Failed to refresh board:', error)
+
+    try {
+      await fetchPlayers()
+    } catch (playersError) {
+      console.error('Failed to load players fallback:', playersError)
+    }
+  }
 }
 
 const fetchProperties = async () => {
@@ -1386,15 +1542,42 @@ const fetchGame = async () => {
 }
 
 const fetchTileByPosition = async (position: number) => {
-  try {
+  if(tileCache.value[position]){
+    currentTile.value = tileCache.value[position].tile_name || ''
+    currentTileType.value = tileCache.value[position].tile_type || null
+    return
+  }try{
     const response = await api.get<TileByNumberResponse>(`/api/games/${gameId}/tiles/by-number/${position}`)
+    tileCache.value[position] = response.data.tile
     currentTile.value = response.data.tile.tile_name || ''
     currentTileType.value = response.data.tile.tile_type || null
-  } catch (error: unknown) {
+  
+  }catch(error: unknown){
     currentTile.value = ''
     currentTileType.value = null
-    showError(error, 'Failed to load tile details.')
+    showError(error, 'Failed to fetch tile details.')
   }
+}
+
+const fetchPlayers = async () => {
+  const response = await api.get<PlayersResponse>(`/api/games/${gameId}/players`)
+
+  const players = response.data.players || []
+
+  applyLeaderboard(
+    players.map((player, index) => ({
+      rank: index + 1,
+      user_id: player.user_id || player.id,
+      user_name: player.user_name || player.name || `Player ${player.user_id || player.id}`,
+      credits: player.credits,
+      total_credits: player.total_credits,
+      position: player.position ?? undefined,
+      last_property_bought_turn: null,
+      last_question_answered_turn: player.last_question_answered_turn ?? null,
+      last_card_scanned_turn: player.last_card_scanned_turn ?? null,
+
+    }))
+  )
 }
 
 const applyLeaderboard = (leaderboard: LeaderboardPlayer[]) => {
@@ -1417,6 +1600,8 @@ const applyLeaderboard = (leaderboard: LeaderboardPlayer[]) => {
       credits: player.credits,
       totalCredits: player.total_credits,
       position: typeof player.position === 'number' ? player.position : null,
+      last_question_answered_turn: player.last_question_answered_turn ?? null,
+      last_card_scanned_turn: player.last_card_scanned_turn ?? null,
       rank: index + 1,
       isCurrentTurn,
       isDimmed: !isCurrentTurn && index > 2,
@@ -1461,6 +1646,8 @@ const fetchLeaderboard = async () => {
   try {
     const response = await api.get<LeaderboardResponse>(`/api/games/${gameId}/leaderboard`)
     const data = response.data
+
+    console.log('Leaderboard response:', data)
 
     gameCode.value = data.game_code || ''
     gameStatus.value = data.status || gameStatus.value
@@ -1543,6 +1730,7 @@ const handleRollDice = async () => {
     rentPaidThisTurn.value = false
     houseBoughtThisTurn.value = false
     propertyBoughtThisTurn.value = false
+    questionAnsweredThisTurn.value = false
 
     toast.success('Dice rolled successfully.')
 
@@ -1715,6 +1903,7 @@ const handleSubmitAnswer = async () => {
     )
 
     answerResult.value = response.data
+    questionAnsweredThisTurn.value = true
 
     if (response.data.is_correct) {
       toast.success(`Correct! You earned ${response.data.earned_credits} Cr.`)
@@ -1883,6 +2072,7 @@ const handleEndTurn = async () => {
     diceTwo.value = null
     lastDiceRoll.value = null
     hasRolledThisTurn.value = false
+    questionAnsweredThisTurn.value = false
 
     toast.success('Turn ended.')
 
@@ -1926,6 +2116,7 @@ onMounted(async () => {
       rentPaidThisTurn.value = false
       houseBoughtThisTurn.value = false
       propertyBoughtThisTurn.value = false
+      questionAnsweredThisTurn.value = false
 
       rankedPlayers.value = rankedPlayers.value.map((player, index) => {
         const isCurrentTurn = player.id === event.current_turn_user_id
@@ -2014,7 +2205,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (gameChannel) {
-    echo.leave(`private-game.${gameId}`)
+    echo.leave(`game.${gameId}`)
     gameChannel = null
   }
 })

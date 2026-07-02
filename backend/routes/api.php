@@ -7,6 +7,8 @@ use App\Http\Controllers\API\QuestionController;
 use App\Http\Controllers\API\PropertyController;
 use App\Http\Controllers\API\LeaderboardController;
 use App\Http\Controllers\API\ProfileController;
+use App\Http\Controllers\API\AdminDashboardController;
+use App\Http\Controllers\API\AdminQuestionController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -43,4 +45,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/properties/buy-house', [PropertyController::class, 'buyHouse']);
     Route::post('/properties/buy-hotel', [PropertyController::class, 'buyHotel']);
     Route::post('/properties/pay-rent', [PropertyController::class, 'payRent']);
+});
+
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+    Route::get('/questions/limit-status', [AdminQuestionController::class, 'limitStatus']);
+
+    Route::apiResource('questions', AdminQuestionController::class)->except(['show']);
 });

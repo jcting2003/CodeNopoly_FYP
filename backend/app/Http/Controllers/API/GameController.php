@@ -17,31 +17,47 @@ use App\Models\Tile;
 
 class GameController extends Controller
 {
+    private const GO_REWARD = 100;
+
     public function store(Request $request){
-        $user = $request->user();
+        $fields = $request->validate([
+            'join_as_player' => 'sometimes|boolean',
+        ]);
+
+        $user = $request -> user();
+
         $game = Game::create([
-            'host_id' => $user -> id,
+            'host_id' => $user->id,
             'game_code' => strtoupper(Str::random(6)),
             'status' => 'waiting',
-
         ]);
 
-        GamePlayer::create([
-            'game_id' => $game->id,
-            'user_id' => $user->id,
-            'credits' => 100,
-            'total_credits' => 100,
-            'joined_at' => now(),
-        ]);
+        if ((bool) ($fields['join_as_player'] ?? false)){
+            GamePlayer::create([
+                'game_id' => $game->id,
+                'user_id' => $user->id,
+                'credits' => 100,
+                'total_credits' => 100,
+                'joined_at' => now(),
+            ]);
+        }
 
         event(new LobbyPlayersUpdated(
-            $game->id,
-            $this->buildLobbyPlayersPayload($game->id)
+            $game -> id,
+            $this -> buildLobbyPlayersPayload($game->id)
         ));
 
         return response()->json([
             'message' => 'Game created successfully',
-            'game' => $game,
+            'game' => [
+                'id' => $game->id,
+                'game_code' => $game->game_code,
+                'status' => $game->status,
+                'host_id' => $game->host_id,
+                'host_joined_as_player' => (bool) ($fields['join_as_player'] ?? false),
+                'started_at' => $game->started_at,
+                'ended_at' => $game->ended_at,
+            ],
         ], 201);
     }
 
@@ -124,13 +140,15 @@ class GameController extends Controller
             ], 404);
         }
 
+        $isHost = (int) $game->host_id === (int) $request->user()->id;
+
         $isPlayerInGame = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $request->user()->id)
             ->exists();
 
-        if (! $isPlayerInGame) {
+        if (! $isHost && ! $isPlayerInGame) {
             return response()->json([
-                'message' => 'You are not part of this game',
+                'message' => 'You are not allowed to view this game',
             ], 403);
         }
 
@@ -290,17 +308,17 @@ class GameController extends Controller
             ], 404);
         }
 
+        $isHost = (int) $game->host_id === (int) $request->user()->id;
+
         $isPlayerInGame = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $request->user()->id)
             ->exists();
 
-        if (! $isPlayerInGame) {
+        if (! $isHost && ! $isPlayerInGame) {
             return response()->json([
-                'message' => 'You are not part of this game',
+                'message' => 'You are not allowed to view this game',
             ], 403);
         }
-
-       
 
         return response()->json([
             'game_id' => $game->id,
@@ -336,13 +354,6 @@ class GameController extends Controller
             ], 403);
         }
 
-        // Prevent rolling more than once in the same turn
-        if ($game->last_dice_roll !== null) {
-            return response()->json([
-                'message' => 'You have already rolled this turn',
-            ], 400);
-        }
-
         $gamePlayer = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $user->id)
             ->first();
@@ -353,19 +364,26 @@ class GameController extends Controller
             ], 404);
         }
 
+        // Prevent rolling more than once in the same turn
+        if ($game->last_dice_roll !== null) {
+            return response()->json([
+                'message' => 'You have already rolled this turn',
+            ], 400);
+        }
+
         $diceOne = random_int(1, 6);
         $diceTwo = random_int(1, 6);
         $diceRoll = $diceOne + $diceTwo;
 
 
-        $oldPosition = $gamePlayer->position ?? 0;
+        $oldPosition = (int) ($gamePlayer->position ?? 0);
         $rawPosition = $oldPosition + $diceRoll;
         $newPosition = $rawPosition % 40;
 
-        // Grant 50 credits when passing or landing on GO
-        if ($rawPosition >= 40 || $newPosition === 0) {
-            $gamePlayer->credits += 50;
-            $gamePlayer->total_credits += 50;
+        // Grant GO reward when passing or landing on GO
+        if ($rawPosition >= 40) {
+            $gamePlayer->credits += self::GO_REWARD;
+            $gamePlayer->total_credits += self::GO_REWARD;
         }
 
         $gamePlayer->position = $newPosition;
@@ -433,6 +451,38 @@ class GameController extends Controller
             return response()->json([
                 'message' => 'It is not your turn',
             ], 403);
+        }
+
+        $gamePlayer = GamePlayer::where('game_id', $game->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $gamePlayer) {
+            return response()->json([
+                'message' => 'Player is not part of this game',
+            ], 404);
+        }
+
+        if ($game->last_dice_roll === null) {
+            return response()->json([
+                'message' => 'You must roll the dice before ending your turn',
+            ], 422);
+        }
+
+        $currentTile = Tile::where('tile_number', $gamePlayer->position)->first();
+
+        if (
+            $currentTile &&
+            in_array($currentTile->tile_type, ['chance', 'community_chest']) &&
+            (
+                $gamePlayer->last_card_scanned_turn === null ||
+                (int) $gamePlayer->last_card_scanned_turn !== (int) $game->turn_number
+            )
+        ) {
+            return response()->json([
+                'message' => 'You must draw a card before ending your turn',
+                'tile_type' => $currentTile->tile_type,
+            ], 422);
         }
 
         $players = GamePlayer::with('user')
@@ -514,13 +564,15 @@ class GameController extends Controller
             ], 404);
         }
 
+        $isHost = (int) $game->host_id === (int) $request->user()->id;
+
         $isPlayerInGame = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $request->user()->id)
             ->exists();
 
-        if (! $isPlayerInGame) {
+        if (! $isHost && ! $isPlayerInGame) {
             return response()->json([
-                'message' => 'You are not part of this game',
+                'message' => 'You are not allowed to view this game',
             ], 403);
         }
 
@@ -589,13 +641,15 @@ class GameController extends Controller
             ], 404);
         }
 
+        $isHost = (int) $game->host_id === (int) $request->user()->id;
+
         $isPlayerInGame = GamePlayer::where('game_id', $game->id)
             ->where('user_id', $request->user()->id)
             ->exists();
 
-        if (! $isPlayerInGame) {
+        if (! $isHost && ! $isPlayerInGame) {
             return response()->json([
-                'message' => 'You are not part of this game',
+                'message' => 'You are not allowed to view this game',
             ], 403);
         }
 
@@ -668,8 +722,11 @@ class GameController extends Controller
                     'total_credits' => $player->total_credits,
                     'position' => $player->position,
                     'last_property_bought_turn' => $player->last_property_bought_turn,
+                    'last_question_answered_turn' => $player->last_question_answered_turn,
+                    'last_card_scanned_turn' => $player->last_card_scanned_turn,
                 ];
             })
             ->toArray();
     }
+
 }

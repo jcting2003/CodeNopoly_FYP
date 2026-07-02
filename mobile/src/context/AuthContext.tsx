@@ -46,8 +46,6 @@ type RegisterPayload = {
 
 type RegisterResponse = {
   message: string
-  token: string
-  user: User
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -96,17 +94,10 @@ const refreshUser = async () => {
 }
 
   const register = async (payload: RegisterPayload) => {
-    const response = await api.post<RegisterResponse>('/register', {
+    await api.post<RegisterResponse>('/register', {
       ...payload,
       device_name: `expo_mobile_${Platform.OS}`,
     })
-
-    const newToken = response.data.token
-
-    await saveToken(newToken)
-    setAuthToken(newToken)
-    setToken(newToken)
-    setUser(response.data.user)
   }
 
 const login = async (email: string, password: string) => {

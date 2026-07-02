@@ -7,9 +7,24 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
 {
+    private function formatUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'profile_photo_path' => $user->profile_photo_path,
+            'profile_photo_url' => $user->profile_photo_path
+                ? url(Storage::url($user->profile_photo_path))
+                : null,
+        ];
+    }
+
     public function register(Request $request)
     {
         $fields = $request->validate([
@@ -33,22 +48,14 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Registration successful',
                 'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ],
+                'user' => $this->formatUser($user),
             ], 201);
         }
 
         // Web registration
         return response()->json([
             'message' => 'Registration successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
+            'user' => $this->formatUser($user),
         ], 201);
     }
 
@@ -76,11 +83,7 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Login successful',
                 'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ],
+                'user' => $this->formatUser($user),
             ]);
         }
 
@@ -93,13 +96,10 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
+            'user' => $this->formatUser($user),
         ]);
     }
+    
     public function logout(Request $request)
     {
         // Mobile / token logout
@@ -131,19 +131,9 @@ class AuthController extends Controller
                 'message' => 'Unauthenticated',
             ], 401);
         }
-         
-        $user = $request->user();
 
         return response()->json([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
+            'user' => $this->formatUser($request->user()),
         ]);
     }
 }

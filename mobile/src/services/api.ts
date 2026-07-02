@@ -1,15 +1,26 @@
 import axios from 'axios'
 import { Platform } from 'react-native'
 
-const fallbackBaseURL =
-  Platform.OS === 'web'
-    ? 'http://localhost:8000'
-    : 'http://192.168.0.11:8000'
+const envBaseURL = process.env.EXPO_PUBLIC_API_URL
 
-const baseURL = process.env.EXPO_PUBLIC_API_URL || fallbackBaseURL
-console.log('API BASE URL:', `${baseURL}/api`)
+if (!envBaseURL) {
+  console.warn(
+    'EXPO_PUBLIC_API_URL is not set. Please set it in your .env file.'
+  )
+}
+
+export const backendBaseURL = (
+  envBaseURL ||
+  (Platform.OS === 'web' ? 'http://localhost:8000' : 'http://10.0.2.2:8000')
+)
+  .replace(/\/api\/?$/, '')
+  .replace(/\/$/, '')
+
+console.log('BACKEND BASE URL:', backendBaseURL)
+console.log('API BASE URL:', `${backendBaseURL}/api`)
+
 const api = axios.create({
-  baseURL: `${baseURL}/api`,
+  baseURL: `${backendBaseURL}/api`,
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',

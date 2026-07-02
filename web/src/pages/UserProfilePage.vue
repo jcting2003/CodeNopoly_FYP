@@ -9,11 +9,15 @@
         </p>
 
         <h1 class="font-headline text-5xl md:text-6xl font-bold tracking-tighter text-on-surface mb-4">
-          My Profile
+          {{ isAdmin ? 'Admin Profile' : 'My Profile' }}
         </h1>
 
         <p class="text-on-surface-variant text-lg leading-relaxed">
-          View your account details, player statistics, and recent CodeNopoly sessions.
+          {{
+            isAdmin
+              ? 'View your admin account details and manage CodeNopoly system functions.'
+              : 'View your account details, player statistics, and recent CodeNopoly sessions.'
+          }}
         </p>
       </section>
 
@@ -44,6 +48,7 @@
               class="absolute -bottom-3 -right-3 bg-primary text-on-primary p-3 rounded-2xl shadow-lg cursor-pointer hover:bg-primary-dim transition-all active:scale-95"
             >
               <span class="material-symbols-outlined text-xl">photo_camera</span>
+
               <input
                 type="file"
                 accept="image/*"
@@ -56,7 +61,7 @@
           <div class="flex-1">
             <div class="inline-flex items-center gap-2 px-3 py-1 bg-tertiary-container text-on-tertiary-container rounded-full text-xs font-bold font-label mb-4">
               <span class="w-2 h-2 rounded-full bg-tertiary"></span>
-              ACTIVE ACCOUNT
+              {{ isAdmin ? 'ADMIN ACCOUNT' : 'ACTIVE ACCOUNT' }}
             </div>
 
             <h2 class="text-4xl font-headline font-bold tracking-tight text-on-surface">
@@ -68,13 +73,25 @@
             </p>
 
             <p class="mt-3 text-sm text-on-surface-variant">
-              User ID: <span class="font-bold text-primary">#{{ profile.id || '—' }}</span>
+              User ID:
+              <span class="font-bold text-primary">#{{ profile.id || '—' }}</span>
+            </p>
+
+            <p class="mt-2 text-sm text-on-surface-variant">
+              Role:
+              <span class="font-bold text-primary capitalize">
+                {{ profile.role || authStore.user?.role || 'player' }}
+              </span>
             </p>
           </div>
         </div>
       </section>
 
-      <section class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+      <!-- Player stats only -->
+      <section
+        v-if="!isAdmin"
+        class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8"
+      >
         <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_12px_40px_rgba(42,51,60,0.04)]">
           <span class="block text-xs uppercase tracking-widest font-label text-outline mb-2">
             Games Joined
@@ -114,7 +131,10 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <section
-          class="lg:col-span-5 bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_12px_40px_rgba(42,51,60,0.06)]"
+          :class="[
+            isAdmin ? 'lg:col-span-12' : 'lg:col-span-5',
+            'bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_12px_40px_rgba(42,51,60,0.06)]'
+          ]"
         >
           <div class="flex items-center gap-3 mb-8">
             <div class="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-on-primary">
@@ -136,6 +156,7 @@
               <label class="text-xs font-label uppercase tracking-wider text-on-surface-variant px-1">
                 Display Name
               </label>
+
               <input
                 v-model="form.name"
                 type="text"
@@ -147,11 +168,25 @@
               <label class="text-xs font-label uppercase tracking-wider text-on-surface-variant px-1">
                 Email Address
               </label>
+
               <input
                 :value="profile.email"
                 type="email"
                 disabled
                 class="mt-2 w-full bg-surface-container-low border-none rounded-xl px-4 py-3 opacity-70 font-body text-on-background cursor-not-allowed"
+              />
+            </div>
+
+            <div>
+              <label class="text-xs font-label uppercase tracking-wider text-on-surface-variant px-1">
+                Role
+              </label>
+
+              <input
+                :value="profile.role || authStore.user?.role || 'player'"
+                type="text"
+                disabled
+                class="mt-2 w-full bg-surface-container-low border-none rounded-xl px-4 py-3 opacity-70 font-body text-on-background cursor-not-allowed capitalize"
               />
             </div>
           </div>
@@ -176,7 +211,9 @@
           </div>
         </section>
 
+        <!-- Player recent games only -->
         <section
+          v-if="!isAdmin"
           class="lg:col-span-7 bg-surface-container-lowest rounded-[2rem] shadow-[0_12px_40px_rgba(42,51,60,0.06)] overflow-hidden"
         >
           <div class="p-8 pb-4">
@@ -184,6 +221,7 @@
               <span class="material-symbols-outlined text-tertiary">history</span>
               Recent Games
             </h3>
+
             <p class="text-sm text-on-surface-variant mt-2">
               Your latest joined sessions.
             </p>
@@ -251,15 +289,20 @@
           </span>
 
           <h4 class="font-headline text-xl font-bold text-on-surface mb-2">
-            Dashboard
+            {{ isAdmin ? 'Admin Dashboard' : 'Dashboard' }}
           </h4>
 
           <p class="text-sm text-on-surface-variant">
-            Return to your main game dashboard.
+            {{
+              isAdmin
+                ? 'Return to the admin dashboard.'
+                : 'Return to your main game dashboard.'
+            }}
           </p>
         </button>
 
         <button
+          v-if="!isAdmin"
           type="button"
           @click="goToMyGames"
           class="bg-surface-container-lowest rounded-2xl p-6 text-left shadow-[0_12px_40px_rgba(42,51,60,0.04)] hover:shadow-[0_20px_50px_rgba(132,67,159,0.15)] hover:-translate-y-1 transition-all duration-300"
@@ -274,6 +317,25 @@
 
           <p class="text-sm text-on-surface-variant">
             View active and past CodeNopoly sessions.
+          </p>
+        </button>
+
+        <button
+          v-if="isAdmin"
+          type="button"
+          @click="goToQuestionBank"
+          class="bg-surface-container-lowest rounded-2xl p-6 text-left shadow-[0_12px_40px_rgba(42,51,60,0.04)] hover:shadow-[0_20px_50px_rgba(30,99,151,0.15)] hover:-translate-y-1 transition-all duration-300"
+        >
+          <span class="material-symbols-outlined text-primary text-4xl mb-4">
+            quiz
+          </span>
+
+          <h4 class="font-headline text-xl font-bold text-on-surface mb-2">
+            Question Bank
+          </h4>
+
+          <p class="text-sm text-on-surface-variant">
+            Manage and edit programming questions.
           </p>
         </button>
 
@@ -306,10 +368,13 @@ import Navbar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
+type UserRole = 'player' | 'admin'
+
 type Profile = {
   id: number | null
   name: string
   email: string
+  role?: UserRole
   profile_photo_url: string | null
 }
 
@@ -337,8 +402,11 @@ const profile = reactive<Profile>({
   id: null,
   name: '',
   email: '',
+  role: undefined,
   profile_photo_url: null,
 })
+
+const isAdmin = computed(() => authStore.user?.role === 'admin' || profile.role === 'admin')
 
 const form = reactive({
   name: '',
@@ -377,9 +445,17 @@ const fetchProfile = async () => {
     profile.id = response.data.id
     profile.name = response.data.name
     profile.email = response.data.email
+    profile.role = response.data.role
     profile.profile_photo_url = response.data.profile_photo_url
 
     form.name = response.data.name
+
+    if (authStore.user) {
+      authStore.user.name = response.data.name
+      authStore.user.email = response.data.email
+      authStore.user.role = response.data.role || authStore.user.role
+      authStore.user.profile_photo_url = response.data.profile_photo_url
+    }
   } finally {
     loadingProfile.value = false
   }
@@ -453,6 +529,11 @@ const handlePhotoUpload = async (event: Event) => {
     })
 
     profile.profile_photo_url = response.data.profile_photo_url
+
+    if (authStore.user) {
+      authStore.user.profile_photo_url = response.data.profile_photo_url
+    }
+
     alert('Profile picture updated successfully.')
   } finally {
     uploadingPhoto.value = false
@@ -487,11 +568,15 @@ const openGame = (game: RecentGame) => {
 }
 
 const goToDashboard = () => {
-  router.push('/dashboard')
+  router.push(isAdmin.value ? '/admin/dashboard' : '/dashboard')
 }
 
 const goToMyGames = () => {
   router.push('/my-games')
+}
+
+const goToQuestionBank = () => {
+  router.push('/admin/questions')
 }
 
 const handleLogout = async () => {
@@ -501,6 +586,9 @@ const handleLogout = async () => {
 
 onMounted(async () => {
   await fetchProfile()
-  await fetchStats()
+
+  if (!isAdmin.value) {
+    await fetchStats()
+  }
 })
 </script>

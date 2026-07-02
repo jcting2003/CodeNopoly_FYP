@@ -40,6 +40,25 @@
               {{ successMessage }}
             </p>
 
+            <label
+              class="w-full max-w-md mb-6 flex items-start gap-3 rounded-2xl bg-surface-container-low px-5 py-4 text-left cursor-pointer"
+            >
+              <input
+                v-model="joinAsPlayer"
+                type="checkbox"
+                class="mt-1 h-5 w-5 accent-primary"
+              />
+
+              <span>
+                <span class="block font-label font-bold text-on-surface">
+                  Join as player
+                </span>
+                <span class="block text-sm text-on-surface-variant mt-1">
+                  Enable this only if the host also wants to participate. For lecturer-hosted sessions, leave this unchecked.
+                </span>
+              </span>
+            </label>
+
             <button
               type="button"
               @click="handleCreateGame"
@@ -95,6 +114,7 @@ const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const createdGame = ref<CreatedGame | null>(null)
+  const joinAsPlayer = ref(false)
 
 const handleCreateGame = async () => {
   errorMessage.value = ''
@@ -104,7 +124,7 @@ const handleCreateGame = async () => {
   try {
     loading.value = true
 
-    const data = await createGame()
+    const data = await createGame(joinAsPlayer.value)
 
     successMessage.value = data.message || 'Game created successfully.'
     createdGame.value = data.game

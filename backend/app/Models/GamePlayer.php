@@ -22,6 +22,8 @@ class GamePlayer extends Model
         'last_property_bought_turn',
         'last_property_bought_property_id',
         'skip_turns',
+        'last_question_answered_turn',
+        'last_card_scanned_turn',
     ];
 
     public function casts(): array{

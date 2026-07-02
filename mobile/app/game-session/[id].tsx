@@ -38,6 +38,8 @@ type LeaderboardPlayer = {
   total_credits: number
   position?: number | null
   last_property_bought_turn?: number | null
+  last_question_answered_turn?: number | null
+  last_card_scanned_turn?: number | null
 }
 
 type LeaderboardResponse = {
@@ -136,6 +138,7 @@ export default function GameSessionScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [rollingDice, setRollingDice] = useState(false)
   const [endingTurn, setEndingTurn] = useState(false)
+  const [endingGame, setEndingGame] = useState(false)
 
   const [buyingProperty, setBuyingProperty] = useState(false)
   const [payingRent, setPayingRent] = useState(false)
@@ -182,6 +185,14 @@ export default function GameSessionScreen() {
     return leaderboard.find((player) => Number(player.user_id) === Number(user?.id))
   }, [leaderboard, user?.id])
 
+  const hasAnsweredQuestionThisTurn = useMemo(() => {
+  return (
+    currentPlayer?.last_question_answered_turn !== null &&
+    currentPlayer?.last_question_answered_turn !== undefined &&
+    Number(currentPlayer.last_question_answered_turn) === Number(turnNumber)
+  )
+}, [currentPlayer, turnNumber])
+
   const currentProperty = useMemo(() => {
     if (currentPosition === null) return null
 
@@ -207,9 +218,15 @@ const canBuyCurrentProperty = useMemo(() => {
     !!currentProperty &&
     isCurrentUserTurn &&
     hasRolledThisTurn &&
+    !hasAnsweredQuestionThisTurn &&
     currentProperty.owner_user_id === null
   )
-}, [currentProperty, isCurrentUserTurn, hasRolledThisTurn])
+}, [
+  currentProperty,
+  isCurrentUserTurn,
+  hasRolledThisTurn,
+  hasAnsweredQuestionThisTurn,
+])
 
 const canPayRentForCurrentProperty = useMemo(() => {
   return (
@@ -326,12 +343,6 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     )
 
     if (me) {
-      setPropertyBoughtThisTurn(
-        me.last_property_bought_turn !== null &&
-          me.last_property_bought_turn !== undefined &&
-          me.last_property_bought_turn === turnNumber
-      )
-
       if (typeof me.position === 'number') {
         setCurrentPosition(me.position)
       }
@@ -354,10 +365,12 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
       if (showLoader) setLoading(true)
       else setRefreshing(true)
 
-      await fetchGame()
-      await fetchProperties()
-      await fetchTurn()
-      await fetchLeaderboard()
+      await Promise.all([
+        fetchGame(),
+        fetchProperties(),
+        fetchTurn(),
+        fetchLeaderboard(),
+      ])
     } catch (error: any) {
       const message =
         error.response?.data?.message || 'Failed to load game session.'
@@ -474,8 +487,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
       setHouseBoughtThisTurn(false)
       setPropertyBoughtThisTurn(false)
 
-      await fetchTurn()
-      await fetchLeaderboard()
+      await Promise.all([
+        fetchTurn(),
+        fetchLeaderboard(),
+      ])
 
       Alert.alert('Turn Ended', 'Your turn has ended.')
     } catch (error: any) {
@@ -486,6 +501,51 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
     } finally {
       setEndingTurn(false)
     }
+  }
+
+  const handleEndGame = () => {
+    if (!isCurrentUserHost) {
+      Alert.alert('Host Only', 'Only the host can end this game.')
+      return
+    }
+
+    Alert.alert(
+      'End Game',
+      'Are you sure you want to end this game? This will finalize the session.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'End Game',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setEndingGame(true)
+
+              await api.post(`/games/${gameId}/end-game`)
+
+              await Promise.all([
+                fetchGame(),
+                fetchTurn(),
+                fetchLeaderboard(),
+                fetchProperties(),
+              ])
+
+              Alert.alert('Game Ended', 'The game session has been ended.')
+            } catch (error: any) {
+              const message =
+                error.response?.data?.message || 'Unable to end the game.'
+
+              Alert.alert('End Game Failed', message)
+            } finally {
+              setEndingGame(false)
+            }
+          },
+        },
+      ]
+    )
   }
 
   const handleBuyProperty = async () => {
@@ -504,8 +564,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
 
       setPropertyBoughtThisTurn(true)
 
-      await fetchProperties()
-      await fetchLeaderboard()
+      await Promise.all([
+        fetchProperties(),
+        fetchLeaderboard(),
+      ])
 
       Alert.alert(
         'Property Bought',
@@ -537,8 +599,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
 
       setRentPaidThisTurn(true)
 
-      await fetchProperties()
-      await fetchLeaderboard()
+      await Promise.all([
+        fetchProperties(),
+        fetchLeaderboard(),
+      ])
 
       Alert.alert(
         'Rent Paid',
@@ -570,8 +634,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
 
       setHouseBoughtThisTurn(true)
 
-      await fetchProperties()
-      await fetchLeaderboard()
+      await Promise.all([
+        fetchProperties(),
+        fetchLeaderboard(),
+      ])
 
       Alert.alert(
         'House Bought',
@@ -605,8 +671,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
         property_id: currentProperty.property_id,
       })
 
-      await fetchProperties()
-      await fetchLeaderboard()
+      await Promise.all([
+        fetchProperties(),
+        fetchLeaderboard(),
+      ])
 
       Alert.alert(
         'Hotel Bought',
@@ -652,8 +720,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
         setHouseBoughtThisTurn(false)
         setPropertyBoughtThisTurn(false)
 
-        await fetchLeaderboard()
-        await fetchProperties()
+        await Promise.all([
+          fetchLeaderboard(),
+          fetchProperties(),
+        ])
       })
 
       channel.listen('.dice.rolled', async (event: any) => {
@@ -681,8 +751,10 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
           setCurrentPosition(me.position)
         }
 
-        await fetchTurn()
-        await fetchProperties()
+        await Promise.all([
+          fetchTurn(),
+          fetchProperties(),
+        ])
       })
 
       channel.listen('.game.ended', (event: any) => {
@@ -1148,17 +1220,25 @@ const canBuyHotelForCurrentProperty = useMemo(() => {
             )}
           </Pressable>
 
-          {isCurrentUserHost && (
-            <Pressable
-              onPress={() => Alert.alert('End Game', 'End game can be added next.')}
-              style={pressableFeedback(false)}
-              className="h-16 items-center justify-center rounded-full bg-red-500"
-            >
+        </View>
+      )}
+
+      {isCurrentUserHost && (
+        <View className="mt-4">
+          <Pressable
+            disabled={endingGame}
+            onPress={handleEndGame}
+            style={pressableFeedback(endingGame)}
+            className="h-16 items-center justify-center rounded-full bg-red-500"
+          >
+            {endingGame ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
               <Text className="text-xl font-black text-white">
                 End Game
               </Text>
-            </Pressable>
-          )}
+            )}
+          </Pressable>
         </View>
       )}
     </ScrollView>

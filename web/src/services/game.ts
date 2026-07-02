@@ -16,7 +16,10 @@ export type CreateGameResponse = {
   game: CreatedGame
 }
 
-export async function createGame() {
-  const response = await api.post<CreateGameResponse>('/api/games')
+export const createGame = async (joinAsPlayer = false) => {
+  const response = await api.post('/api/games', {
+    join_as_player: joinAsPlayer,
+  })
+
   return response.data
 }

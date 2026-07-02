@@ -5,7 +5,7 @@
     <!-- Left side -->
     <div class="flex items-center gap-8">
       <RouterLink
-        :to="authStore.isLoggedIn ? '/dashboard' : '/'"
+        :to="logoRoute"
         class="text-2xl font-bold tracking-tighter text-blue-700"
       >
         Pythonopoly
@@ -13,27 +13,48 @@
 
       <!-- Show nav links only when logged in -->
       <div v-if="authStore.isLoggedIn" class="hidden md:flex gap-6 items-center">
-        <RouterLink
-          to="/dashboard"
-          class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
-          active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
-        >
-          Dashboard
-        </RouterLink>
+        <!-- Admin links -->
+        <template v-if="isAdmin">
+          <RouterLink
+            to="/admin/dashboard"
+            class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
+            active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
+          >
+            Admin Dashboard
+          </RouterLink>
 
-        <RouterLink
-          to="/my-games"
-          class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
-          active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
-        >
-          My Games
-        </RouterLink>
+          <RouterLink
+            to="/admin/questions"
+            class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
+            active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
+          >
+            Question Bank
+          </RouterLink>
+        </template>
+
+        <!-- Normal player links -->
+        <template v-else>
+          <RouterLink
+            to="/dashboard"
+            class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
+            active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
+          >
+            Dashboard
+          </RouterLink>
+
+          <RouterLink
+            to="/my-games"
+            class="text-slate-500 font-medium hover:text-blue-500 transition-colors"
+            active-class="text-blue-700 border-b-2 border-blue-600 font-bold"
+          >
+            My Games
+          </RouterLink>
+        </template>
       </div>
     </div>
 
     <!-- Right side -->
     <div class="flex items-center gap-4">
-      <!-- Show these only when logged in -->
       <template v-if="authStore.isLoggedIn">
         <button
           class="p-2 text-slate-500 hover:text-blue-500 transition-transform scale-95 active:scale-90 duration-200"
@@ -55,8 +76,8 @@
             class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden block"
           >
             <img
-              v-if="authStore.user?.profile_picture"
-              :src="authStore.user.profile_picture"
+              v-if="authStore.user?.profile_photo_url"
+              :src="authStore.user.profile_photo_url"
               alt="Profile picture"
               class="w-full h-full object-cover"
             />
@@ -79,7 +100,6 @@
         </div>
       </template>
 
-      <!-- Before login, only show Login if you want it on the right -->
       <RouterLink
         v-else
         to="/login"
@@ -92,11 +112,22 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+
+const logoRoute = computed(() => {
+  if (!authStore.isLoggedIn) {
+    return '/'
+  }
+
+  return isAdmin.value ? '/admin/dashboard' : '/dashboard'
+})
 
 const handleLogout = async () => {
   await authStore.logout()

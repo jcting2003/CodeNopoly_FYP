@@ -8,7 +8,8 @@ export type AuthUser = {
   name?: string
   username?: string
   email: string
-  profile_picture?: string | null
+  role: 'player' | 'admin'
+  profile_photo_url?: string | null
 }
 
 type LoginPayload = {
@@ -50,15 +51,27 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const initialized = ref(false)
 
   const isLoggedIn = computed(() => user.value !== null)
 
+  type UserResponse = {
+    user: AuthUser
+  }
+
   async function fetchUser() {
-    try {
-      const response = await api.get<{ user: AuthUser }>('/api/user')
+    if(initialized.value && user.value){
+      return user.value
+    }
+    try{
+      const response =await api.get<{user: AuthUser}>('/api/user')
       user.value = response.data.user
-    } catch {
+      return user.value
+    }catch{
       user.value = null
+      return null
+    }finally{
+      initialized.value = true
     }
   }
 
@@ -68,8 +81,8 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await api.get('/sanctum/csrf-cookie')
-      const response = await api.post('/api/login', payload)
-      await fetchUser()
+      const response = await api.post<{message: string; user: AuthUser}>('/api/login' ,payload)
+      user.value = response.data.user
       return response.data
     } catch (err: unknown) {
       console.log('Login backend error:', axios.isAxiosError(err) ? err.response?.data : err)
@@ -114,6 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isLoggedIn,
+    initialized,
     fetchUser,
     login,
     register,

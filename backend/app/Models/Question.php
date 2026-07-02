@@ -2,32 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Question extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'tile_id',
-        'question_type',
         'question_text',
+        'question_type',
+        'difficulty',
+        'credits',
 
-        // MCQ fields
         'option_a',
         'option_b',
         'option_c',
         'option_d',
-        'correct_answer',
 
-        // Structured question fields
+        'correct_answer',
         'expected_answer',
         'rubric',
         'max_score',
-
-        'credits',
-        'difficulty',
     ];
 
     public function tile()

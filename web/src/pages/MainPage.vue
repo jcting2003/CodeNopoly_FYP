@@ -7,7 +7,7 @@
     <main class="pt-24 pb-12 overflow-hidden">
       <!-- Hero Section -->
       <section
-        class="relative px-6 md:px-12 lg:px-24 py-16 md:py-32 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center"
+        class="relative px-6 md:px-12 lg:px-24 pt-16 pb-8 md:pt-32 md:pb-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center"
       >
         <div
           class="absolute inset-0 -z-10 opacity-10 pointer-events-none select-none font-mono text-xs overflow-hidden leading-relaxed p-10"
@@ -34,20 +34,6 @@
             A high-stakes hybrid experience blending tactile physical boards with digital NFC
             execution. Build your repository, outsmart rivals, and compile your way to victory.
           </p>
-
-          <div class="flex flex-wrap gap-4 pt-4">
-            <button
-              class="px-8 py-4 rounded-full bg-gradient-to-br from-primary to-primary-dim text-on-primary font-bold text-lg shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
-            >
-              Initialize Session
-            </button>
-
-            <button
-              class="px-8 py-4 rounded-full bg-secondary-container text-on-secondary-container font-bold text-lg hover:bg-secondary-fixed transition-all active:scale-95"
-            >
-              Join Network
-            </button>
-          </div>
         </div>
 
         <div class="lg:col-span-5 relative">

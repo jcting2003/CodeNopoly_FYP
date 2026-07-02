@@ -81,6 +81,8 @@ type ScanResponse = {
   question?: QuestionData
 }
 
+type Difficulty = 'easy' | 'intermediate' | 'hard'
+
 export default function TileScannerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const gameId = Number(id)
@@ -99,6 +101,7 @@ export default function TileScannerScreen() {
     tile_id?: number
     tile_name?: string
     name?: string
+    available_difficulties: Difficulty[]
   } | null>(null)
 
   useEffect(() => {
@@ -211,10 +214,34 @@ export default function TileScannerScreen() {
         return
       }
 
-      setPendingTile({
-          id: tileId,
-          tile_name: tileName || 'Selected Tile',
+      const availableDifficulties = (
+        scanResponse.data.available_difficulties || []
+      )
+        .map((difficulty) => {
+          const normalized = difficulty.toLowerCase()
+
+          return normalized === 'medium' ? 'intermediate' : normalized
         })
+        .filter((difficulty): difficulty is Difficulty =>
+          ['easy', 'intermediate', 'hard'].includes(difficulty)
+        )
+
+      if (availableDifficulties.length === 0) {
+        Alert.alert(
+          'No Questions Available',
+          'This tile does not have any available questions yet.'
+        )
+
+        scanLockRef.current = false
+        setHasScanned(false)
+        return
+      }
+
+      setPendingTile({
+        id: tileId,
+        tile_name: tileName || 'Selected Tile',
+        available_difficulties: availableDifficulties,
+      })
 
         setQrMode(false)
         } catch (error: any) {
@@ -237,10 +264,15 @@ export default function TileScannerScreen() {
         }
       }
 
-  const loadQuestionByDifficulty = async (
-    difficulty: 'easy' | 'intermediate' | 'hard'
-  ) => {
+  const loadQuestionByDifficulty = async (difficulty: Difficulty) => {
     if (!pendingTile || scanning || questionLockRef.current) return
+    if (!pendingTile.available_difficulties.includes(difficulty)) {
+      Alert.alert(
+        'Difficulty Not Available',
+        'This difficulty is not available for the selected tile.'
+      )
+      return
+    }
 
     questionLockRef.current = true
 
@@ -530,35 +562,34 @@ return (
         </Text>
 
         <View className="gap-3">
-          <Pressable
-            onPress={() => loadQuestionByDifficulty('easy')}
-            disabled={scanning || questionLockRef.current}
-            className={`h-14 items-center justify-center rounded-full bg-green-600 ${
-              scanning || questionLockRef.current ? 'opacity-60' : ''
-            }`}
-          >
-            <Text className="font-black text-white">Easy</Text>
-          </Pressable>
+          {pendingTile.available_difficulties.map((difficulty) => {
+            const difficultyLabel =
+              difficulty === 'easy'
+                ? 'Easy'
+                : difficulty === 'intermediate'
+                  ? 'Intermediate'
+                  : 'Hard'
 
-          <Pressable
-            onPress={() => loadQuestionByDifficulty('intermediate')}
-            disabled={scanning || questionLockRef.current}
-            className={`h-14 items-center justify-center rounded-full bg-yellow-600 ${
-              scanning || questionLockRef.current ? 'opacity-60' : ''
-            }`}
-          >
-            <Text className="font-black text-white">Intermediate</Text>
-          </Pressable>
+            const difficultyColor =
+              difficulty === 'easy'
+                ? 'bg-green-600'
+                : difficulty === 'intermediate'
+                  ? 'bg-yellow-600'
+                  : 'bg-red-600'
 
-          <Pressable
-            onPress={() => loadQuestionByDifficulty('hard')}
-            disabled={scanning || questionLockRef.current}
-            className={`h-14 items-center justify-center rounded-full bg-red-600 ${
-              scanning || questionLockRef.current ? 'opacity-60' : ''
-            }`}
-          >
-            <Text className="font-black text-white">Hard</Text>
-          </Pressable>
+            return (
+              <Pressable
+                key={difficulty}
+                onPress={() => loadQuestionByDifficulty(difficulty)}
+                disabled={scanning || questionLockRef.current}
+                className={`h-14 items-center justify-center rounded-full ${difficultyColor} ${
+                  scanning || questionLockRef.current ? 'opacity-60' : ''
+                }`}
+              >
+                <Text className="font-black text-white">{difficultyLabel}</Text>
+              </Pressable>
+            )
+          })}
         </View>
 
         <Pressable
