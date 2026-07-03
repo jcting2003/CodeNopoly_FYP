@@ -33,6 +33,9 @@ return [
     'ollama' => [
         'base_url' => env('OLLAMA_BASE_URL', 'http://ollama:11434'),
         'model' => env('OLLAMA_MODEL', 'qwen2.5-coder:1.5b'),
+        'connect_timeout' => (int) env('OLLAMA_CONNECT_TIMEOUT', 5),
+        'validation_timeout' => (int) env('OLLAMA_VALIDATION_TIMEOUT', 30),
+        'hint_timeout' => (int) env('OLLAMA_HINT_TIMEOUT', 20),
     ],
 
 ];

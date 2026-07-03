@@ -8,6 +8,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(BoardSeeder::class);
+
         if (app()->environment('local', 'testing')) {
             $this->call(AdminUserSeeder::class);
         }

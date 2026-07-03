@@ -12,11 +12,13 @@ class QwenAnswerValidationService
     {
         $baseUrl = rtrim(config('services.ollama.base_url'), '/');
         $model = config('services.ollama.model');
+        $connectTimeout = (int) config('services.ollama.connect_timeout', 5);
+        $timeout = (int) config('services.ollama.validation_timeout', 30);
 
         $prompt = $this->buildValidationPrompt($question, $studentAnswer);
 
         try {
-            $response = Http::timeout(90)->post($baseUrl . '/api/generate', [
+            $response = Http::connectTimeout($connectTimeout)->timeout($timeout)->post($baseUrl . '/api/generate', [
                 'model' => $model,
                 'prompt' => $prompt,
                 'stream' => false,
@@ -70,11 +72,13 @@ class QwenAnswerValidationService
     {
         $baseUrl = rtrim(config('services.ollama.base_url'), '/');
         $model = config('services.ollama.model');
+        $connectTimeout = (int) config('services.ollama.connect_timeout', 5);
+        $timeout = (int) config('services.ollama.hint_timeout', 20);
 
         $prompt = $this->buildHintPrompt($question);
 
         try {
-            $response = Http::timeout(60)->post($baseUrl . '/api/generate', [
+            $response = Http::connectTimeout($connectTimeout)->timeout($timeout)->post($baseUrl . '/api/generate', [
                 'model' => $model,
                 'prompt' => $prompt,
                 'stream' => false,

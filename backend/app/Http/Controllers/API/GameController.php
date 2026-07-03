@@ -541,16 +541,22 @@ class GameController extends Controller
             $nextPlayer->user?->name
         ));
 
+        $leaderboard = $this->buildLeaderboardPayload($game->id);
+
         event(new LeaderboardUpdated(
             $game->id,
-            $this->buildLeaderboardPayload($game->id)
+            $leaderboard
         ));
 
         return response()->json([
             'message' => 'Turn ended successfully',
             'next_turn_user_id' => $nextPlayer->user_id,
             'next_turn_user_name' => $nextPlayer->user?->name,
+            'current_turn_user_id' => $nextPlayer->user_id,
+            'current_turn_user_name' => $nextPlayer->user?->name,
             'turn_number' => $game->turn_number,
+            'last_dice_roll' => $game->last_dice_roll,
+            'leaderboard' => $leaderboard,
         ]);
     }
 

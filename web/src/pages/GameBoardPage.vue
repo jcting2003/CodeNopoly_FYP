@@ -337,20 +337,21 @@
 
               <div class="p-6 bg-white/60 backdrop-blur-xl rounded-2xl border-2 border-white/50 mb-6 space-y-4">
                 <p class="text-on-tertiary-container font-medium">
-                  Awaiting tile verification...
+                  {{ isCardTile ? 'Card tile detected. Scan a drawn card below.' : 'Awaiting tile verification...' }}
                 </p>
 
                 <input
                   v-model="qrInputValue"
                   type="text"
-                  placeholder="Enter QR value for testing"
+                  :placeholder="isCardTile ? 'Use the card scanner below' : 'Enter tile QR value or tile number'"
+                  :disabled="isCardTile"
                   class="w-full px-4 py-3 rounded-xl border border-white/50 bg-white text-slate-800 outline-none"
                 />
 
                 <button
                   type="button"
                   @click="handleScanTile"
-                  :disabled="isHostOnlyView || scanningTile || !isCurrentUserTurn || !hasRolledThisTurn"
+                  :disabled="isCardTile || isHostOnlyView || scanningTile || !isCurrentUserTurn || !hasRolledThisTurn"
                   class="w-full px-4 py-3 rounded-xl bg-tertiary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {{ scanningTile ? 'Scanning...' : 'Scan Tile (QR Test)' }}
@@ -1027,6 +1028,10 @@ type LeaderboardResponse = {
   game_id: number
   game_code: string
   status: string
+  turn_number?: number
+  last_dice_roll?: number | null
+  current_turn_user_id?: number | null
+  current_turn_user_name?: string | null
   leaderboard: LeaderboardPlayer[]
 }
 
@@ -1080,9 +1085,13 @@ type RankedPlayer = {
 type EndTurnResponse = {
   message?: string
   turn_number?: number
+  next_turn_user_id?: number | null
+  next_turn_user_name?: string | null
   current_turn_user_id?: number | null
   current_turn_user_name?: string | null
+  last_dice_roll?: number | null
   status?: string
+  leaderboard?: LeaderboardPlayer[]
 }
 
 
@@ -1280,6 +1289,8 @@ const loadingTurn = ref(false)
 const rollingDice = ref(false)
 
 let gameChannel: ReturnType<typeof echo.private> | null = null
+let boardRefreshTimer: number | null = null
+let boardRefreshInFlight = false
 
 const gameName = ref(`Game #${gameId}`)
 const currentTurnText = ref('Waiting...')
@@ -1647,11 +1658,15 @@ const fetchLeaderboard = async () => {
     const response = await api.get<LeaderboardResponse>(`/api/games/${gameId}/leaderboard`)
     const data = response.data
 
-    console.log('Leaderboard response:', data)
-
     gameCode.value = data.game_code || ''
     gameStatus.value = data.status || gameStatus.value
     gameName.value = `Game #${data.game_id}`
+    turnNumber.value = data.turn_number ?? turnNumber.value
+    lastDiceRoll.value = data.last_dice_roll ?? lastDiceRoll.value
+    currentTurnUserId.value = data.current_turn_user_id ?? currentTurnUserId.value
+    currentTurnName.value = data.current_turn_user_name ?? currentTurnName.value
+    currentTurnText.value = data.current_turn_user_name || currentTurnText.value
+    hasRolledThisTurn.value = data.last_dice_roll !== null && data.last_dice_roll !== undefined
 
     applyLeaderboard(data.leaderboard)
 
@@ -1682,6 +1697,40 @@ const fetchLeaderboard = async () => {
     }
   } finally {
     loadingLeaderboard.value = false
+  }
+}
+
+const refreshLeaderboardInBackground = () => {
+  void fetchLeaderboard().catch((error) => {
+    console.error('Failed to refresh leaderboard:', error)
+  })
+}
+
+const refreshBoardDataInBackground = () => {
+  void Promise.all([
+    fetchProperties(),
+    fetchLeaderboard(),
+  ]).catch((error) => {
+    console.error('Failed to refresh board data:', error)
+  })
+}
+
+const refreshGameStateInBackground = () => {
+  if (boardRefreshInFlight) return
+
+  boardRefreshInFlight = true
+  void fetchLeaderboard()
+    .catch((error) => {
+      console.error('Failed to refresh game state:', error)
+    })
+    .finally(() => {
+      boardRefreshInFlight = false
+    })
+}
+
+const handleBoardVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    refreshGameStateInBackground()
   }
 }
 
@@ -1807,8 +1856,7 @@ const handleScanCard = async () => {
       }
     }
 
-    await fetchProperties()
-    await fetchLeaderboard()
+    refreshBoardDataInBackground()
   } catch (error: unknown) {
     showError(error, 'Failed to scan card.')
   } finally {
@@ -1911,7 +1959,7 @@ const handleSubmitAnswer = async () => {
       toast.info('Answer submitted. No credits earned.')
     }
 
-    await fetchLeaderboard()
+    refreshLeaderboardInBackground()
   } catch (error: unknown) {
     showError(error, 'Failed to submit answer.')
   } finally {
@@ -1956,8 +2004,7 @@ const handleBuyProperty = async () => {
     propertyBoughtThisTurn.value = true
     toast.success('Property bought successfully.')
 
-    await fetchProperties()
-    await fetchLeaderboard()
+    refreshBoardDataInBackground()
   } catch (error: unknown) {
     showError(error, 'Failed to buy property.')
   } finally {
@@ -1983,8 +2030,7 @@ const handlePayRent = async () => {
 
     toast.success('Rent paid successfully.')
 
-    await fetchProperties()
-    await fetchLeaderboard()
+    refreshBoardDataInBackground()
   } catch (error: unknown) {
     showError(error, 'Failed to pay rent.')
   } finally {
@@ -2010,8 +2056,7 @@ const handleBuyHouse = async () => {
 
     toast.success('House bought successfully.')
 
-    await fetchProperties()
-    await fetchLeaderboard()
+    refreshBoardDataInBackground()
   } catch (error: unknown) {
     const message = getErrorMessage(error, 'Failed to buy house.')
 
@@ -2039,9 +2084,8 @@ const handleBuyHotel = async () => {
       property_id: currentProperty.value.property_id,
     })
 
-    await fetchProperties()
-    await fetchLeaderboard()
     toast.success('Hotel bought successfully.')
+    refreshBoardDataInBackground()
   } catch (error: unknown) {
     showError(error, 'Failed to buy hotel.')
   } finally {
@@ -2066,13 +2110,30 @@ const handleEndTurn = async () => {
   try {
     endingTurn.value = true
 
-    await api.post<EndTurnResponse>(`/api/games/${gameId}/end-turn`)
+    const response = await api.post<EndTurnResponse>(`/api/games/${gameId}/end-turn`)
+    const data = response.data
+    const nextTurnUserId = data.current_turn_user_id ?? data.next_turn_user_id ?? null
+    const nextTurnUserName = data.current_turn_user_name ?? data.next_turn_user_name ?? null
 
+    turnNumber.value = data.turn_number ?? turnNumber.value
+    currentTurnUserId.value = nextTurnUserId
+    currentTurnName.value = nextTurnUserName
+    currentTurnText.value = nextTurnUserName || 'Waiting...'
+    gameStatus.value = data.status || gameStatus.value || 'started'
     diceOne.value = null
     diceTwo.value = null
-    lastDiceRoll.value = null
+    lastDiceRoll.value = data.last_dice_roll ?? null
     hasRolledThisTurn.value = false
+    rentPaidThisTurn.value = false
+    houseBoughtThisTurn.value = false
+    propertyBoughtThisTurn.value = false
     questionAnsweredThisTurn.value = false
+
+    if (data.leaderboard) {
+      applyLeaderboard(data.leaderboard)
+    } else {
+      refreshGameStateInBackground()
+    }
 
     toast.success('Turn ended.')
 
@@ -2098,6 +2159,15 @@ onMounted(async () => {
       router.replace(`/games/${gameId}/final-leaderboard`)
       return
     }
+
+    boardRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+
+      refreshGameStateInBackground()
+    }, 1000)
+
+    document.addEventListener('visibilitychange', handleBoardVisibilityChange)
+    window.addEventListener('focus', refreshGameStateInBackground)
 
     gameChannel = echo.private(`game.${gameId}`)
 
@@ -2204,6 +2274,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (boardRefreshTimer !== null) {
+    window.clearInterval(boardRefreshTimer)
+    boardRefreshTimer = null
+  }
+
+  document.removeEventListener('visibilitychange', handleBoardVisibilityChange)
+  window.removeEventListener('focus', refreshGameStateInBackground)
+
   if (gameChannel) {
     echo.leave(`game.${gameId}`)
     gameChannel = null

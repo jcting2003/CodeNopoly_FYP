@@ -21,7 +21,7 @@ class QuestionController extends Controller
     public function scanTile(Request $request, int $id)
     {
         $fields = $request->validate([
-            'nfc_value' => 'required|string|exists:tiles,nfc_value',
+            'nfc_value' => 'required|string',
         ]);
 
         $user = $request->user();
@@ -62,14 +62,20 @@ class QuestionController extends Controller
             ], 404);
         }
 
+        $scanValue = trim($fields['nfc_value']);
+
         $tile = Tile::with('questions')
-            ->where('nfc_value', $fields['nfc_value'])
+            ->where('nfc_value', $scanValue)
+            ->when(is_numeric($scanValue), function ($query) use ($scanValue) {
+                $query->orWhere('tile_number', (int) $scanValue);
+            })
             ->first();
 
         if (! $tile) {
             return response()->json([
-                'message' => 'Tile not found',
-            ], 404);
+                'message' => 'Scanned tile QR/NFC value was not found',
+                'accepted_examples' => ['7', 'NFC_TILE_07'],
+            ], 422);
         }
 
         if ((int) $gamePlayer->position !== (int) $tile->tile_number) {

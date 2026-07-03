@@ -194,6 +194,7 @@ import echo from '@/lib/echo'
 import { useAuthStore } from '@/stores/auth'
 import QrcodeVue from 'qrcode.vue'
 
+
 type GameData = {
   id: number
   host_id: number
@@ -215,10 +216,11 @@ type RawPlayer = {
 type PlayersResponse =
   | RawPlayer[]
   | {
+      game?: GameData
       players?: RawPlayer[]
     }
 
-type LobbyPlayer = {
+type LobbyPlayer= {
   id: number
   name: string
   status: string
@@ -271,6 +273,8 @@ const startingGame = ref(false)
 
 const maxPlayers = 6
 let gameChannel: ReturnType<typeof echo.private> | null = null
+let lobbyRefreshTimer: number | null = null
+let lobbyRefreshInFlight = false
 
 const currentUserId = computed(() => authStore.user?.id ?? null)
 
@@ -338,6 +342,16 @@ const fetchGame = async () => {
 const fetchPlayers = async () => {
   const response = await api.get<PlayersResponse>(`/api/games/${gameId}/players`)
 
+  if (!Array.isArray(response.data) && response.data.game) {
+    game.value = response.data.game
+    sessionStorage.setItem('created_game', JSON.stringify(response.data.game))
+
+    if (response.data.game.status === 'started') {
+      router.push(`/game-board/${gameId}`)
+      return
+    }
+  }
+
   const rawPlayers = Array.isArray(response.data)
     ? response.data
     : response.data.players || []
@@ -361,6 +375,29 @@ const fetchPlayers = async () => {
   })
 }
 
+const refreshLobby = async () => {
+  await fetchPlayers()
+}
+
+const refreshLobbyInBackground = () => {
+  if (lobbyRefreshInFlight) return
+
+  lobbyRefreshInFlight = true
+  void refreshLobby()
+    .catch((error) => {
+      console.error('Failed to refresh lobby:', error)
+    })
+    .finally(() => {
+      lobbyRefreshInFlight = false
+    })
+}
+
+const handleLobbyVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    refreshLobbyInBackground()
+  }
+}
+
 const handleStartGame = async () => {
   if (players.value.length < 2) return
 
@@ -380,8 +417,16 @@ const handleStartGame = async () => {
 
 onMounted(async () => {
   try {
-    await fetchGame()
-    await fetchPlayers()
+    await refreshLobby()
+
+    lobbyRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+
+      refreshLobbyInBackground()
+    }, 1000)
+
+    document.addEventListener('visibilitychange', handleLobbyVisibilityChange)
+    window.addEventListener('focus', refreshLobbyInBackground)
 
     gameChannel = echo.private(`game.${gameId}`)
 
@@ -412,6 +457,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (lobbyRefreshTimer !== null) {
+    window.clearInterval(lobbyRefreshTimer)
+    lobbyRefreshTimer = null
+  }
+
+  document.removeEventListener('visibilitychange', handleLobbyVisibilityChange)
+  window.removeEventListener('focus', refreshLobbyInBackground)
+
   if (gameChannel) {
     echo.leave(`game.${gameId}`)
     gameChannel = null

@@ -91,8 +91,9 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
+  const needsUser = Boolean(to.meta.requiresAuth || to.meta.requiresAdmin || to.path === '/login')
 
-  if (!authStore.user) {
+  if (needsUser && !authStore.initialized) {
     await authStore.fetchUser()
   }
 

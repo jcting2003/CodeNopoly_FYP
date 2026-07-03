@@ -52,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const initialized = ref(false)
+  let fetchUserPromise: Promise<AuthUser | null> | null = null
 
   const isLoggedIn = computed(() => user.value !== null)
 
@@ -60,19 +61,34 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchUser() {
-    if(initialized.value && user.value){
+    if (initialized.value) {
       return user.value
     }
-    try{
-      const response =await api.get<{user: AuthUser}>('/api/user')
-      user.value = response.data.user
-      return user.value
-    }catch{
-      user.value = null
-      return null
-    }finally{
-      initialized.value = true
+
+    if (fetchUserPromise) {
+      return fetchUserPromise
     }
+
+    fetchUserPromise = (async () => {
+      try{
+        const response = await api.get<{user: AuthUser}>('/api/user')
+        user.value = response.data.user
+        return user.value
+      }catch{
+        user.value = null
+        return null
+      }finally{
+        initialized.value = true
+        fetchUserPromise = null
+      }
+    })()
+
+    return fetchUserPromise
+  }
+
+  async function refreshUser() {
+    initialized.value = false
+    return fetchUser()
   }
 
   async function login(payload: LoginPayload) {
@@ -83,6 +99,7 @@ export const useAuthStore = defineStore('auth', () => {
       await api.get('/sanctum/csrf-cookie')
       const response = await api.post<{message: string; user: AuthUser}>('/api/login' ,payload)
       user.value = response.data.user
+      initialized.value = true
       return response.data
     } catch (err: unknown) {
       console.log('Login backend error:', axios.isAxiosError(err) ? err.response?.data : err)
@@ -115,6 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       user.value = null
       error.value = null
+      initialized.value = true
     }
   }
 
@@ -129,6 +147,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     initialized,
     fetchUser,
+    refreshUser,
     login,
     register,
     logout,
