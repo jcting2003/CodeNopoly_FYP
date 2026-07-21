@@ -33,6 +33,7 @@ type AuthContextValue = {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
+  forgotPassword: (email: string) => Promise<ForgotPasswordResponse>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -46,6 +47,11 @@ type RegisterPayload = {
 
 type RegisterResponse = {
   message: string
+}
+
+type ForgotPasswordResponse = {
+  message: string
+  reset_url?: string
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -115,6 +121,14 @@ const login = async (email: string, password: string) => {
   setUser(response.data.user)
 }
 
+const forgotPassword = async (email: string) => {
+  const response = await api.post<ForgotPasswordResponse>('/forgot-password', {
+    email,
+  })
+
+  return response.data
+}
+
 const logout = async () => {
   try {
     await api.post('/logout')
@@ -159,6 +173,7 @@ const logout = async () => {
         loading,
         register,
         login,
+        forgotPassword,
         logout,
         refreshUser,
       }}

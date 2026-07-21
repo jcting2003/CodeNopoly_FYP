@@ -261,6 +261,67 @@
           </tbody>
         </table>
       </div>
+
+      <div
+        v-if="popup.visible"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+        @click.self="closePopup"
+      >
+        <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-bold uppercase tracking-[0.2em]" :class="popupToneClass">
+                {{ popup.type === 'confirm' ? 'Please Confirm' : popup.type }}
+              </p>
+
+              <h3 class="mt-2 text-2xl font-bold text-on-surface">
+                {{ popup.title }}
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              class="rounded-full px-3 py-1 text-on-surface-variant hover:bg-surface-container"
+              @click="closePopup"
+            >
+              Close
+            </button>
+          </div>
+
+          <p class="mt-4 whitespace-pre-line text-on-surface-variant">
+            {{ popup.message }}
+          </p>
+
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              v-if="popup.type === 'confirm'"
+              type="button"
+              class="rounded-full bg-surface-container px-5 py-2 font-bold text-on-surface"
+              @click="closePopup"
+            >
+              Cancel
+            </button>
+
+            <button
+              v-if="popup.type === 'confirm'"
+              type="button"
+              class="rounded-full bg-red-600 px-5 py-2 font-bold text-white"
+              @click="confirmPopup"
+            >
+              Delete
+            </button>
+
+            <button
+              v-else
+              type="button"
+              class="rounded-full bg-primary px-5 py-2 font-bold text-white"
+              @click="closePopup"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -320,13 +381,37 @@ type ApiError = {
   }
 }
 
+type PopupType = 'success' | 'error' | 'warning' | 'confirm'
+
+type PopupState = {
+  visible: boolean
+  type: PopupType
+  title: string
+  message: string
+  onConfirm: null | (() => void | Promise<void>)
+}
+
 const loading = ref(true)
 const saving = ref(false)
 const questions = ref<Question[]>([])
 const selectedQuestionId = ref<number | null>(null)
 const formMode = ref<'none' | 'add' | 'edit'>('none')
+const popup = ref<PopupState>({
+  visible: false,
+  type: 'success',
+  title: '',
+  message: '',
+  onConfirm: null,
+})
 
 const canUseForm = computed(() => formMode.value === 'add' || !!selectedQuestionId.value)
+const popupToneClass = computed(() => {
+  if (popup.value.type === 'error') return 'text-red-600'
+  if (popup.value.type === 'warning') return 'text-amber-600'
+  if (popup.value.type === 'confirm') return 'text-red-600'
+
+  return 'text-primary'
+})
 
 const defaultForm = (): QuestionForm => ({
   tile_id: '',
@@ -350,6 +435,36 @@ const form = ref<QuestionForm>(defaultForm())
 
 const resetForm = () => {
   form.value = defaultForm()
+}
+
+const showPopup = (
+  type: PopupType,
+  title: string,
+  message: string,
+  onConfirm: PopupState['onConfirm'] = null,
+) => {
+  popup.value = {
+    visible: true,
+    type,
+    title,
+    message,
+    onConfirm,
+  }
+}
+
+const closePopup = () => {
+  popup.value.visible = false
+  popup.value.onConfirm = null
+}
+
+const confirmPopup = async () => {
+  const popupAction = popup.value.onConfirm
+
+  closePopup()
+
+  if (popupAction) {
+    await popupAction()
+  }
 }
 
 const clearSelection = () => {
@@ -396,7 +511,7 @@ const fetchQuestions = async () => {
     questions.value = response.data.questions || []
   } catch (error) {
     console.error('Failed to load questions:', error)
-    alert('Failed to load questions.')
+    showPopup('error', 'Unable to Load Questions', 'Failed to load questions.')
   } finally {
     loading.value = false
   }
@@ -435,7 +550,9 @@ const handleAddQuestion = async () => {
     const response = await api.get('/api/admin/questions/limit-status')
 
     if (!response.data.can_add_question) {
-      alert(
+      showPopup(
+        'warning',
+        'Question Limit Reached',
         `Question limit reached. Current total: ${response.data.current_total}/${response.data.maximum_allowed}`
       )
       return
@@ -451,7 +568,11 @@ const handleAddQuestion = async () => {
     })
   } catch (error) {
     console.error('Failed to check question limit:', error)
-    alert(getApiErrorMessage(error, 'Failed to check question limit.'))
+    showPopup(
+      'error',
+      'Unable to Check Question Limit',
+      getApiErrorMessage(error, 'Failed to check question limit.'),
+    )
   }
 }
 
@@ -470,12 +591,16 @@ const handleCreateQuestion = async () => {
   try {
     await api.post('/api/admin/questions', buildQuestionPayload())
 
-    alert('Question added successfully.')
+    showPopup('success', 'Question Added', 'Question added successfully.')
     clearSelection()
     await fetchQuestions()
   } catch (error) {
     console.error('Failed to add question:', error)
-    alert(getApiErrorMessage(error, 'Failed to add question. Please check the form values.'))
+    showPopup(
+      'error',
+      'Unable to Add Question',
+      getApiErrorMessage(error, 'Failed to add question. Please check the form values.'),
+    )
   } finally {
     saving.value = false
   }
@@ -483,7 +608,7 @@ const handleCreateQuestion = async () => {
 
 const handleUpdateQuestion = async () => {
   if (!selectedQuestionId.value) {
-    alert('Please select a question to edit first.')
+    showPopup('warning', 'No Question Selected', 'Please select a question to edit first.')
     return
   }
 
@@ -492,32 +617,41 @@ const handleUpdateQuestion = async () => {
   try {
     await api.put(`/api/admin/questions/${selectedQuestionId.value}`, buildQuestionPayload())
 
-    alert('Question updated successfully.')
+    showPopup('success', 'Question Updated', 'Question updated successfully.')
     clearSelection()
     await fetchQuestions()
   } catch (error) {
     console.error('Failed to update question:', error)
-    alert(getApiErrorMessage(error, 'Failed to update question. Please check the form values.'))
+    showPopup(
+      'error',
+      'Unable to Update Question',
+      getApiErrorMessage(error, 'Failed to update question. Please check the form values.'),
+    )
   } finally {
     saving.value = false
   }
 }
 
 const handleDeleteQuestion = async (id: number) => {
-  if (!confirm('Delete this question?')) return
+  showPopup('confirm', 'Delete Question?', 'This action will permanently remove the question.', async () => {
+    try {
+      await api.delete(`/api/admin/questions/${id}`)
 
-  try {
-    await api.delete(`/api/admin/questions/${id}`)
+      if (selectedQuestionId.value === id) {
+        clearSelection()
+      }
 
-    if (selectedQuestionId.value === id) {
-      clearSelection()
+      showPopup('success', 'Question Deleted', 'The question was deleted successfully.')
+      await fetchQuestions()
+    } catch (error) {
+      console.error('Failed to delete question:', error)
+      showPopup(
+        'error',
+        'Unable to Delete Question',
+        getApiErrorMessage(error, 'Failed to delete question.'),
+      )
     }
-
-    await fetchQuestions()
-  } catch (error) {
-    console.error('Failed to delete question:', error)
-    alert(getApiErrorMessage(error, 'Failed to delete question.'))
-  }
+  })
 }
 
 onMounted(fetchQuestions)

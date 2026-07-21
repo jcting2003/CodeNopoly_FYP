@@ -12,6 +12,10 @@ import MyGamesPage from '@/pages/MyGamesPage.vue'
 import UserProfilePage from '@/pages/UserProfilePage.vue'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage.vue'
 import AdminQuestionsPage from '@/pages/admin/AdminQuestionsPage.vue'
+import GameGuidelinesPage from '@/pages/GameGuidelinesPage.vue'
+import LegalPrivacyPage from '@/pages/LegalPrivacyPage.vue'
+import NfcSetupPage from '@/pages/NfcSetupPage.vue'
+import ResetPasswordPage from '@/pages/ResetPasswordPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -25,6 +29,26 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginPage,
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordPage,
+    },
+    {
+      path: '/game-guidelines',
+      name: 'game-guidelines',
+      component: GameGuidelinesPage,
+    },
+    {
+      path: '/legal',
+      name: 'legal',
+      component: LegalPrivacyPage,
+    },
+    {
+      path: '/nfc-setup',
+      name: 'nfc-setup',
+      component: NfcSetupPage,
     },
     {
       path: '/dashboard',

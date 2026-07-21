@@ -11,6 +11,15 @@
       <div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         <!-- Left Side -->
         <div class="lg:col-span-5 space-y-6">
+          <button
+            type="button"
+            @click="router.push('/dashboard')"
+            class="inline-flex items-center gap-2 rounded-full bg-surface-container-low px-5 py-3 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container"
+          >
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Back
+          </button>
+
           <div
             class="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-bold tracking-widest uppercase font-label"
           >
@@ -156,36 +165,6 @@
         </div>
       </div>
     </main>
-
-    <footer class="mt-auto py-8 px-10 flex flex-col md:flex-row justify-between items-center gap-6">
-      <div class="flex gap-8 text-sm font-medium text-on-surface-variant opacity-70 font-['Space_Grotesk']">
-        <a class="hover:text-primary transition-colors" href="#">Open Source Docs</a>
-        <a class="hover:text-primary transition-colors" href="#">Code Lab API</a>
-        <a class="hover:text-primary transition-colors" href="#">Privacy Protocol</a>
-      </div>
-
-      <div class="flex items-center gap-6">
-        <span class="text-xs tracking-widest uppercase text-on-surface-variant font-label opacity-40">
-          Synthesized by Logic Team
-        </span>
-
-        <div class="flex gap-4">
-          <button
-            type="button"
-            class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-all"
-          >
-            <span class="material-symbols-outlined text-sm">help</span>
-          </button>
-
-          <button
-            type="button"
-            class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-all"
-          >
-            <span class="material-symbols-outlined text-sm">code</span>
-          </button>
-        </div>
-      </div>
-    </footer>
   </div>
 </template>
 

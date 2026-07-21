@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -10,6 +9,7 @@ import {
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import api from '../src/services/api'
+import { popup } from '../src/services/popup'
 
 type SubmitAnswerResponse = {
   message?: string
@@ -20,6 +20,10 @@ type SubmitAnswerResponse = {
   feedback?: string
   explanation?: string
   ai_feedback?: string
+}
+
+type HintResponse = {
+  hint: string
 }
 
 export default function QuestionScreen() {
@@ -43,9 +47,12 @@ export default function QuestionScreen() {
   const [selectedAnswer, setSelectedAnswer] = useState('')
   const [structuredAnswer, setStructuredAnswer] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [loadingHint, setLoadingHint] = useState(false)
+  const [questionHint, setQuestionHint] = useState('')
   const [result, setResult] = useState<SubmitAnswerResponse | null>(null)
 
   const questionType = params.questionType || 'mcq'
+  const isCorrectAnswer = Boolean(result?.correct || result?.is_correct)
 
   const options = useMemo(() => {
     return [
@@ -61,7 +68,7 @@ export default function QuestionScreen() {
       questionType === 'structured' ? structuredAnswer.trim() : selectedAnswer
 
     if (!answer) {
-      Alert.alert('Missing Answer', 'Please select or type your answer.')
+      popup.alert('Missing Answer', 'Please select or type your answer.')
       return
     }
 
@@ -81,9 +88,28 @@ export default function QuestionScreen() {
       const message =
         error.response?.data?.message || 'Failed to submit answer.'
 
-      Alert.alert('Submit Failed', message)
+      popup.alert('Submit Failed', message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const getHint = async () => {
+    try {
+      setLoadingHint(true)
+      setQuestionHint('')
+
+      const response = await api.post<HintResponse>(
+        `/games/${gameId}/questions/${questionId}/hint`
+      )
+
+      setQuestionHint(response.data.hint)
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to get hint.'
+
+      popup.alert('Hint Failed', message)
+    } finally {
+      setLoadingHint(false)
     }
   }
 
@@ -186,12 +212,42 @@ export default function QuestionScreen() {
         </View>
       )}
 
+      {!result && questionType === 'structured' && (
+        <Pressable
+          onPress={getHint}
+          disabled={loadingHint || submitting}
+          className={`mb-4 h-14 items-center justify-center rounded-full border border-primary bg-white ${
+            loadingHint || submitting ? 'opacity-60' : ''
+          }`}
+        >
+          {loadingHint ? (
+            <ActivityIndicator color="#205C90" />
+          ) : (
+            <Text className="text-base font-black text-primary">
+              Use Hint
+            </Text>
+          )}
+        </Pressable>
+      )}
+
+      {!result && questionHint ? (
+        <View className="mb-6 rounded-3xl border border-yellow-200 bg-yellow-50 p-5">
+          <Text className="mb-2 text-xs font-black uppercase tracking-widest text-yellow-800">
+            Hint
+          </Text>
+
+          <Text className="text-base font-bold leading-7 text-yellow-900">
+            {questionHint}
+          </Text>
+        </View>
+      ) : null}
+
       {!result && (
         <Pressable
           onPress={submitAnswer}
-          disabled={submitting}
+          disabled={submitting || loadingHint}
           className={`h-16 items-center justify-center rounded-full bg-primary ${
-            submitting ? 'opacity-60' : ''
+            submitting || loadingHint ? 'opacity-60' : ''
           }`}
         >
           {submitting ? (
@@ -218,8 +274,18 @@ export default function QuestionScreen() {
               'Your answer has been submitted.'}
           </Text>
 
-          <View className="mt-5 rounded-2xl bg-tertiary-container p-4">
-            <Text className="text-sm font-black text-on-tertiary-container">
+          <View
+            className={`mt-5 rounded-2xl p-4 ${
+              isCorrectAnswer ? 'bg-tertiary-container' : 'bg-error-container'
+            }`}
+          >
+            <Text
+              className={`text-sm font-black ${
+                isCorrectAnswer
+                  ? 'text-on-tertiary-container'
+                  : 'text-on-error-container'
+              }`}
+            >
               Credits Earned:{' '}
               {result.earned_credits ?? result.credits_awarded ?? 0}
             </Text>

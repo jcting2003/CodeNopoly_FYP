@@ -24,6 +24,8 @@ const api = axios.create({
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
+    // Prevent ngrok free-tier browser interstitials from being returned to XHR/fetch calls.
+    ...(backendBaseURL.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : {}),
   },
 })
 

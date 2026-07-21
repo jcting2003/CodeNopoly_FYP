@@ -2,6 +2,17 @@
   <div class="min-h-screen bg-background text-on-surface flex flex-col">
     <main class="flex-1 flex items-center justify-center px-6 py-10">
       <div class="w-full max-w-xl text-center">
+        <div class="mb-6 flex justify-start">
+          <button
+            type="button"
+            @click="goToDashboard"
+            class="inline-flex items-center gap-2 rounded-full bg-surface-container-low shadow-md px-5 py-3 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container"
+          >
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Back
+          </button>
+        </div>
+
         <p
           class="font-headline uppercase tracking-[0.2em] text-primary font-bold text-xs mb-4"
         >
@@ -9,7 +20,7 @@
         </p>
 
         <h1 class="font-headline text-5xl md:text-6xl font-bold tracking-tight mb-10">
-          Pythonopoly
+          CodeNopoly
         </h1>
 
         <div

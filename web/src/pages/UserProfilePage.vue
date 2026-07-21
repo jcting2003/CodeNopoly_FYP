@@ -1,8 +1,8 @@
 <template>
-  <div class="bg-background text-on-surface min-h-screen">
+  <div class="bg-background text-on-surface min-h-screen flex flex-col">
     <Navbar />
 
-    <main class="pt-24 pb-20 px-6 max-w-6xl mx-auto">
+    <main class="flex-1 pt-24 pb-20 px-6 max-w-6xl mx-auto w-full">
       <section class="mb-10">
         <p class="font-headline uppercase tracking-[0.2em] text-primary font-bold text-xs mb-3">
           Account.Profile()
@@ -92,7 +92,7 @@
         v-if="!isAdmin"
         class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8"
       >
-        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_12px_40px_rgba(42,51,60,0.04)]">
+        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-md">
           <span class="block text-xs uppercase tracking-widest font-label text-outline mb-2">
             Games Joined
           </span>
@@ -101,7 +101,7 @@
           </span>
         </div>
 
-        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_12px_40px_rgba(42,51,60,0.04)]">
+        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-md">
           <span class="block text-xs uppercase tracking-widest font-label text-outline mb-2">
             Games Won
           </span>
@@ -110,7 +110,7 @@
           </span>
         </div>
 
-        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_12px_40px_rgba(42,51,60,0.04)]">
+        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-md">
           <span class="block text-xs uppercase tracking-widest font-label text-outline mb-2">
             Total Credits
           </span>
@@ -119,7 +119,7 @@
           </span>
         </div>
 
-        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-[0_12px_40px_rgba(42,51,60,0.04)]">
+        <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-md">
           <span class="block text-xs uppercase tracking-widest font-label text-outline mb-2">
             Highest Score
           </span>
@@ -358,15 +358,20 @@
         </button>
       </section>
     </main>
+
+    <Footer />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+import Footer from '@/components/AppFooter.vue'
 import Navbar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from 'vue-toastification'
 
 type UserRole = 'player' | 'admin'
 
@@ -395,8 +400,13 @@ type RecentGame = {
   joined_at: string | null
 }
 
+type ErrorResponse = {
+  message?: string
+}
+
 const router = useRouter()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const profile = reactive<Profile>({
   id: null,
@@ -424,6 +434,14 @@ const loadingProfile = ref(false)
 const loadingStats = ref(false)
 const savingProfile = ref(false)
 const uploadingPhoto = ref(false)
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ErrorResponse>(error)) {
+    return error.response?.data?.message || fallback
+  }
+
+  return fallback
+}
 
 const initials = computed(() => {
   if (!profile.name) return 'P'
@@ -486,7 +504,7 @@ const resetForm = () => {
 
 const saveProfile = async () => {
   if (!form.name.trim()) {
-    alert('Display name is required.')
+    toast.warning('Display name is required.')
     return
   }
 
@@ -504,7 +522,9 @@ const saveProfile = async () => {
       authStore.user.name = response.data.user.name
     }
 
-    alert('Profile updated successfully.')
+    toast.success('Profile updated successfully.')
+  } catch (error: unknown) {
+    toast.error(getErrorMessage(error, 'Failed to update profile.'))
   } finally {
     savingProfile.value = false
   }
@@ -534,7 +554,9 @@ const handlePhotoUpload = async (event: Event) => {
       authStore.user.profile_photo_url = response.data.profile_photo_url
     }
 
-    alert('Profile picture updated successfully.')
+    toast.success('Profile picture updated successfully.')
+  } catch (error: unknown) {
+    toast.error(getErrorMessage(error, 'Failed to update profile picture.'))
   } finally {
     uploadingPhoto.value = false
     input.value = ''

@@ -1,1045 +1,366 @@
-# Codenopoly
+# CodeNopoly
 
-Codenopoly is a hybrid physical-digital programming learning game inspired by Monopoly. It combines a physical board game with a web/mobile platform where players scan QR/NFC tiles, answer Python questions, earn credits, buy properties, pay rent, and compete on a leaderboard.
+CodeNopoly is a final-year-project hybrid learning game that combines a physical board, QR/NFC interactions, a Laravel API, a Vue web client, and an Expo mobile app. Players create or join a game, roll dice, scan physical tiles or cards, answer Python questions, and progress through property and leaderboard mechanics.
 
-The system includes AI-assisted validation using Qwen for structured Python answers and AI-generated hints to support formative learning.
+## System Architecture
 
----
+- `backend`: Laravel 9 API, Sanctum auth, MySQL persistence, Pusher broadcasting, Ollama/Qwen integration
+- `web`: Vue 3 + Vite browser client
+- `mobile`: React Native + Expo mobile client
+- `docker-compose.yml`: Dockerized stack for MySQL, backend, frontend, and Ollama
+- `codenopoly.sql`: SQL export for importing prepared data
 
-## Features
-
-- User registration and login
-- Create and join multiplayer game sessions
-- Game lobby with host start control
-- Digital dice rolling
-- QR/NFC tile scanning
-- MCQ and structured Python questions
-- AI-assisted structured answer validation using Qwen
-- AI-generated hints
-- Credits and total credits tracking
-- Property buying, rent, houses, and hotels
-- Chance and Community Chest card scanning
-- Leaderboard
-- User profile and profile picture upload
-- Docker-based setup for easier deployment
-
----
-
-## Tech Stack
-
-### Backend
-
-- Laravel
-- MySQL
-- Laravel Sanctum
-- Laravel Broadcasting / Pusher
-- Ollama + Qwen
-
-### Web Frontend
-
-- Vue 3
-- TypeScript
-- Vite
-- Tailwind CSS
-- Pinia
-- Axios
-- Laravel Echo
-
-### Mobile App
-
-- Expo Go
-- React Native
-
-### DevOps / AI
-
-- Docker
-- Docker Compose
-- Ollama
-- Qwen `qwen2.5-coder:1.5b`
-
----
-
-## Project Structure
-
-```text
-codenopoly/
-├── backend/              # Laravel backend
-├── web/                  # Vue frontend
-├── mobile/               # Expo mobile app
-├── docker-compose.yml
-├── codenopoly.sql        # Database import file
-└── README.md
-```
-
----
-
-## Docker Services
-
-| Service | Container | URL / Port |
-|---|---|---|
-| Frontend | `codenopoly-frontend` | `http://localhost:5173` |
-| Backend | `codenopoly-backend` | `http://localhost:8000` |
-| MySQL | `codenopoly-mysql` | `localhost:3307` |
-| Ollama | `codenopoly-ollama` | `http://localhost:11434` |
-
----
-
-## Requirements
-
-Before running this project, install:
-
-- Docker Desktop
-- Git, only if cloning from GitHub
-- Expo Go, only if testing the mobile app
-
-You do **not** need XAMPP when running the project with Docker.
-
----
-
-# First-Time Setup Guide
-
-Follow these steps when setting up the project for the first time.
-
----
-
-## 1. Obtain the Project Files
-
-There are two ways to obtain the project.
-
-### Option A: Download ZIP File
-
-If the project is submitted as a ZIP file:
-
-1. Download the ZIP file.
-2. Extract the ZIP file.
-3. Open the extracted `codenopoly` folder.
-4. Make sure the folder structure looks like this:
+## Folder Structure
 
 ```text
 codenopoly/
 ├── backend/
-├── web/
 ├── mobile/
-├── docker-compose.yml
+├── qr-codes/
+├── test-screenshots/
+├── web/
 ├── codenopoly.sql
+├── docker-compose.yml
+├── LECTURER_QUICK_START.md
+├── SUBMISSION_CHECKLIST.md
+├── SUBMISSION_READINESS_REPORT.md
 └── README.md
 ```
 
-Then open a terminal in the extracted `codenopoly` folder before running the setup commands.
+## Main Technologies
 
-### Option B: Clone from GitHub
+- Backend: PHP 8.x, Laravel 9, Sanctum, Pusher PHP SDK, MySQL
+- Web: Node.js, Vue 3, TypeScript, Vite, Pinia, Axios, Tailwind CSS, Laravel Echo
+- Mobile: Expo SDK 54, React Native 0.81, React 19, Expo Router, Expo Camera, `react-native-nfc-manager`, Axios, Laravel Echo
+- AI/Services: Ollama with `qwen2.5-coder:1.5b`
+- Infrastructure: Docker, Docker Compose, Nginx, PHP-FPM
 
-```bash
-git clone <repository-url>
-cd codenopoly
-```
+## Runtime Versions
 
-Replace `<repository-url>` with the actual GitHub repository link.
+- PHP: backend validated on `8.0.30`
+- Composer: backend validated on `2.7.7`
+- Laravel: `9.52.21`
+- Node.js:
+  - Web package declares `^20.19.0 || >=22.12.0`
+  - Docker web image uses `node:20-alpine`
+  - Local validation ran on Node `20.19.2`
+- MySQL: Docker image `mysql:8.0`
+- Expo SDK: `54`
 
----
+## Required Services
 
-## 2. Environment Files
+- MySQL database
+- Laravel backend
+- Vue web frontend
+- Ollama with the Qwen model available locally
+- Pusher account/credentials for realtime updates
+- Ngrok or another reachable backend URL for physical-device mobile testing when needed
 
-For the submitted ZIP version, the required `.env` files may already be included for demonstration purposes.
+## Environment Files
 
-If the `.env` files are already included, you can continue to **Step 3**.
+Working environment files already exist in this repository, but their values are intentionally not reproduced here.
 
-If the `.env` files are missing, create them manually using the sections below.
-
----
-
-## 2.1 Backend Environment File
-
-Create this file:
-
-```text
-backend/.env
-```
-
-Use the following example:
-
-```env
-APP_NAME=Codenopoly
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-FRONTEND_URL=http://localhost:5173
-SESSION_DOMAIN=localhost
-SANCTUM_STATEFUL_DOMAINS=localhost:5173,127.0.0.1:5173
-
-LOG_CHANNEL=stack
-LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
-
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_PORT=3306
-DB_DATABASE=codenopoly
-DB_USERNAME=codenopoly_user
-DB_PASSWORD=secret
-
-BROADCAST_DRIVER=pusher
-
-PUSHER_APP_ID=your_pusher_app_id
-PUSHER_APP_KEY=your_pusher_app_key
-PUSHER_APP_SECRET=your_pusher_app_secret
-PUSHER_APP_CLUSTER=ap1
-
-OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_MODEL=qwen2.5-coder:1.5b
-
-CACHE_DRIVER=file
-FILESYSTEM_DISK=local
-QUEUE_CONNECTION=sync
-SESSION_DRIVER=file
-SESSION_LIFETIME=120
-```
+- Existing private env files detected:
+  - `backend/.env`
+  - `web/.env`
+  - `mobile/.env`
+- Safe examples provided:
+  - `backend/.env.example`
+  - `web/.env.example`
+  - `mobile/.env.example`
 
 Important:
 
-Inside Docker, Laravel connects to MySQL using:
+- Do not overwrite working `.env` files.
+- Do not rotate keys or secrets.
+- Do not replace the current working ngrok/mobile API URL unless you intentionally want a new one.
 
-```env
-DB_HOST=mysql
-DB_PORT=3306
-```
+## Hardware and Software Prerequisites
 
-Do **not** use `localhost` for the database inside the backend container.
+- Windows, macOS, or Linux development machine
+- Docker Desktop
+- Node.js 20+
+- npm
+- PHP 8.0+ and Composer if running backend outside Docker
+- MySQL client if importing SQL manually
+- Expo Go on a phone if mobile testing is needed
+- NFC-capable Android device for NFC testing
+- Camera-enabled device for QR testing
 
----
+## Recommended Startup Order
 
-## 2.2 Frontend Environment File
+1. Start Docker services for MySQL, backend, frontend, and Ollama.
+2. Confirm the backend responds.
+3. Import `codenopoly.sql` or run migrations/seeders.
+4. Pull the Ollama model if it is not already present.
+5. Confirm Pusher credentials are present in private env files.
+6. Start the mobile app with Expo if mobile testing is needed.
+7. Verify the mobile API URL points to a reachable backend or active ngrok tunnel.
 
-Create this file if needed:
+## Docker Setup
 
-```text
-web/.env
-```
+From the project root:
 
-Example:
-
-```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_PUSHER_APP_KEY=your_pusher_app_key
-VITE_PUSHER_APP_CLUSTER=ap1
-```
-
-The exact variable names may depend on the frontend implementation.
-
----
-
-## 2.3 Pusher Configuration
-
-This project uses Pusher for real-time multiplayer updates.
-
-For the submitted ZIP version, the `.env` file may already include working Pusher credentials for demonstration purposes.
-
-If setting up manually, update these values in `backend/.env`:
-
-```env
-BROADCAST_DRIVER=pusher
-
-PUSHER_APP_ID=your_pusher_app_id
-PUSHER_APP_KEY=your_pusher_app_key
-PUSHER_APP_SECRET=your_pusher_app_secret
-PUSHER_APP_CLUSTER=ap1
-```
-
-For a public GitHub repository, real Pusher credentials should **not** be committed. Use `.env.example` instead.
-
----
-
-## 3. Start Docker Containers
-
-From the project root, run:
-
-```bash
+```powershell
 docker compose up -d --build
 ```
 
-Check that all containers are running:
+Services:
 
-```bash
+- `codenopoly-mysql` on host port `3307`
+- `codenopoly-backend` on host port `8000`
+- `codenopoly-frontend` on host port `5173`
+- `codenopoly-ollama` on host port `11434`
+
+Useful commands:
+
+```powershell
+docker compose up -d
+docker compose up -d --build
+docker compose down
 docker ps
+docker logs --tail 100 codenopoly-backend
+docker logs --tail 100 codenopoly-frontend
+docker logs --tail 100 codenopoly-ollama
 ```
 
-You should see these containers:
+## Database Setup
 
-```text
-codenopoly-frontend
-codenopoly-backend
-codenopoly-mysql
-codenopoly-ollama
+### Option A: Import the prepared SQL export
+
+```powershell
+docker exec -i codenopoly-mysql mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS codenopoly;"
+Get-Content .\codenopoly.sql | docker exec -i codenopoly-mysql mysql -u root -proot codenopoly
+docker exec -it codenopoly-backend php artisan migrate
 ```
 
----
+### Option B: Use Laravel migrations and seeders
 
-## 4. Clear Laravel Cache
-
-Run these commands after Docker starts:
-
-```bash
-docker exec -it codenopoly-backend php artisan config:clear
-docker exec -it codenopoly-backend php artisan cache:clear
-docker exec -it codenopoly-backend php artisan route:clear
-```
-
----
-
-## 5. Generate Laravel App Key
-
-Run this only if `APP_KEY` in `backend/.env` is empty:
-
-```bash
-docker exec -it codenopoly-backend php artisan key:generate
-```
-
-If the submitted ZIP already includes a working `.env` with an `APP_KEY`, this step can be skipped.
-
----
-
-## 6. Set Up the Database
-
-There are two setup options.
-
-Use **Option A** if you want to create a clean database using Laravel migrations and seeders.
-
-Use **Option B** if the submitted ZIP includes `codenopoly.sql` and you want to import the prepared project data.
-
-For ready-to-use setup, **Option B is recommended**.
-
----
-
-### Option A: Use Migrations and Seeders
-
-Run:
-
-```bash
+```powershell
 docker exec -it codenopoly-backend php artisan migrate
 docker exec -it codenopoly-backend php artisan db:seed
 ```
 
----
+Current seeding behavior:
 
-### Option B: Import Existing SQL File
+- If `codenopoly.sql` exists at the project root, `DatabaseSeeder` now uses `SqlSnapshotSeeder` to mirror the SQL snapshot for the main app tables.
+- If `codenopoly.sql` is missing, the seeder falls back to the older code-defined seed path.
 
-Make sure the SQL file is located here:
+Seeder classes present:
 
-```text
-codenopoly/codenopoly.sql
-```
+- `DatabaseSeeder`
+- `SqlSnapshotSeeder`
+- `BoardSeeder`
+- `AdminUserSeeder`
 
-Reset the Docker database:
+Notes:
+
+- Do not use destructive commands such as `migrate:fresh` on the submission copy unless you intentionally want to wipe data.
+- `php artisan db:seed` now replaces the main seeded tables with the SQL snapshot data when `codenopoly.sql` is present.
+- Profile image uploads require `php artisan storage:link`.
+
+## Backend Startup
+
+Dockerized:
 
 ```powershell
-docker exec -i codenopoly-mysql mysql -u root -proot -e "DROP DATABASE IF EXISTS codenopoly; CREATE DATABASE codenopoly;"
+docker compose up -d backend mysql ollama
 ```
 
-Import the SQL file:
+Local from `backend`:
 
 ```powershell
-Get-Content .\codenopoly.sql | docker exec -i codenopoly-mysql mysql -u root -proot codenopoly
+composer install
+php artisan config:clear
+php artisan migrate
+php artisan serve --host=localhost --port=8000
 ```
 
-Then run migrations again to apply any newer table changes:
+The repository also includes `start.ps1`, which starts the backend and web app in separate PowerShell windows for local non-Docker use.
 
-```bash
-docker exec -it codenopoly-backend php artisan migrate
+## Web Startup
+
+Dockerized:
+
+```powershell
+docker compose up -d frontend
 ```
 
----
+Local from `web`:
 
-## 7. Create Laravel Storage Link
-
-This is required for profile picture uploads.
-
-```bash
-docker exec -it codenopoly-backend php artisan storage:link
+```powershell
+npm install
+npm run dev
 ```
 
-You only need to run this once during setup, or when the storage link is missing.
-
----
-
-## 8. Pull the Qwen Model
-
-The project uses Qwen through Ollama for structured answer validation and AI hints.
-
-Run:
-
-```bash
-docker exec -it codenopoly-ollama ollama pull qwen2.5-coder:1.5b
-```
-
-This may take some time because the model needs to be downloaded.
-
----
-
-## 9. Test Qwen Manually
-
-Run:
-
-```bash
-docker exec -it codenopoly-ollama ollama run qwen2.5-coder:1.5b
-```
-
-Try this prompt:
-
-```text
-Check if this Python answer is correct:
-
-Question:
-Write Python code that converts the string "python" to uppercase and prints the result.
-
-Answer:
-print("python".upper())
-```
-
-To exit Qwen, type:
-
-```text
-/bye
-```
-
----
-
-## 10. Open the Web App
-
-Open the frontend:
+Default URL:
 
 ```text
 http://localhost:5173
 ```
 
-Backend URL:
+## Mobile Startup With Expo Go
 
-```text
-http://localhost:8000
-```
-
----
-
-# Quick Setup Summary
-
-For the submitted ZIP version, the usual setup flow is:
-
-```bash
-docker compose up -d --build
-docker exec -it codenopoly-backend php artisan config:clear
-docker exec -it codenopoly-backend php artisan cache:clear
-docker exec -it codenopoly-backend php artisan route:clear
-docker exec -it codenopoly-backend php artisan storage:link
-docker exec -it codenopoly-ollama ollama pull qwen2.5-coder:1.5b
-```
-
-If the database is empty, also run:
+From `mobile`:
 
 ```powershell
-docker exec -i codenopoly-mysql mysql -u root -proot -e "DROP DATABASE IF EXISTS codenopoly; CREATE DATABASE codenopoly;"
-Get-Content .\codenopoly.sql | docker exec -i codenopoly-mysql mysql -u root -proot codenopoly
-docker exec -it codenopoly-backend php artisan migrate
-```
-
-Then open:
-
-```text
-http://localhost:5173
-```
-
----
-
-# Running the Project After First-Time Setup
-
-After the first-time setup is completed, you usually only need to run:
-
-```bash
-docker compose up -d
-```
-
-Then open:
-
-```text
-http://localhost:5173
-```
-
-To stop the project:
-
-```bash
-docker compose down
-```
-
----
-
-# AI Validation
-
-Structured questions are validated using Qwen.
-
-For structured questions, the backend sends the following to Qwen:
-
-- Question text
-- Expected answer
-- Rubric
-- Student answer
-
-Qwen returns JSON like this:
-
-```json
-{
-  "is_correct": true,
-  "score": 100,
-  "feedback": "The answer satisfies the question requirement."
-}
-```
-
-The system controls the actual game credits.
-
-Current rule:
-
-```text
-Correct answer → full question credits
-Wrong answer → 0 credits
-```
-
-This prevents the AI from freely deciding how many credits to award.
-
----
-
-# AI Hint System
-
-Players can click **Use Hint** before submitting an answer.
-
-The backend asks Qwen to generate a short hint based on:
-
-- Question text
-- Rubric
-
-The hint should guide the student without revealing the full answer.
-
-Example:
-
-```text
-Question:
-Write Python code that creates a list called items and adds the value "apple" to the end of the list.
-
-Hint:
-Start by creating an empty list, then use a list method that adds a value to the end.
-```
-
----
-
-# Game Flow
-
-Basic game flow:
-
-1. Open `http://localhost:5173`
-2. Register or log in
-3. Create a game
-4. Copy the game code
-5. Open another browser
-6. Log in as another user
-7. Join the game using the game code
-8. Host starts the game
-9. Current player rolls dice
-10. Player scans the tile QR/NFC value
-11. Player chooses difficulty
-12. Code Lab opens
-13. Player answers the question
-14. MCQ is checked normally or structured answer is checked by Qwen
-15. Credits are awarded
-16. Leaderboard updates
-17. Player ends turn
-18. Next player continues
-
----
-
-# Testing Multiplayer
-
-Do not use two normal windows of the same browser for different users because the same browser shares cookies and sessions.
-
-Recommended setup:
-
-```text
-Host player: Chrome
-Player 2: Edge or Firefox
-Player 3: Incognito window or another browser
-```
-
-You can also test with:
-
-```text
-Host: Web browser
-Player 2: Mobile app
-```
-
----
-
-# Database Access
-
-You can access the Docker MySQL database using DBeaver, MySQL Workbench, TablePlus, or another MySQL client.
-
-Connection details:
-
-```text
-Host: localhost
-Port: 3307
-Database: codenopoly
-Username: codenopoly_user
-Password: secret
-```
-
-Alternative root login:
-
-```text
-Host: localhost
-Port: 3307
-Database: codenopoly
-Username: root
-Password: root
-```
-
-If DBeaver shows `Public Key Retrieval is not allowed`, set these driver properties:
-
-```text
-allowPublicKeyRetrieval = true
-useSSL = false
-```
-
----
-
-# Useful Database Commands
-
-Enter MySQL:
-
-```bash
-docker exec -it codenopoly-mysql mysql -u root -proot
-```
-
-Use the database:
-
-```sql
-USE codenopoly;
-```
-
-Show all tables:
-
-```sql
-SHOW TABLES;
-```
-
-Check users:
-
-```sql
-SELECT id, name, email, profile_photo_path
-FROM users;
-```
-
-Check questions:
-
-```sql
-SELECT id, tile_id, question_type, difficulty, credits, question_text
-FROM questions
-ORDER BY id;
-```
-
-Check structured questions:
-
-```sql
-SELECT id, tile_id, question_type, difficulty, credits, max_score, question_text
-FROM questions
-WHERE question_type = 'structured';
-```
-
-Check latest player answers and AI feedback:
-
-```sql
-SELECT id, game_id, user_id, question_id, selected_answer, is_correct, earned_credits, feedback, answered_at
-FROM player_answers
-ORDER BY id DESC
-LIMIT 10;
-```
-
----
-
-# Running the Mobile App
-
-The mobile app is not Dockerized.
-
-Run it separately:
-
-```bash
-cd mobile
 npm install
 npx expo start
 ```
 
-Use Expo Go to scan the QR code.
+Then scan the Expo QR code with Expo Go.
 
-For mobile testing, do not use:
+Mobile notes:
 
-```text
-http://localhost:8000
-```
+- QR scanning uses `expo-camera`
+- NFC support is intended for Android and requires `android.permission.NFC`
+- iOS config includes `NFCReaderUsageDescription`, but operational support still depends on platform/plugin constraints
+- The mobile app reads `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_PUSHER_APP_KEY`, and `EXPO_PUBLIC_PUSHER_APP_CLUSTER`
+- On a physical phone, `localhost` is not valid unless the backend is running on that same device
 
-because on a phone, `localhost` means the phone itself.
+## Ngrok Setup
 
-Use your laptop IP address instead.
+The mobile app contains explicit handling for ngrok-backed API access. The working ngrok URL in the current private environment was intentionally not exposed here.
 
-Example:
+If the existing working ngrok tunnel is still active:
 
-```env
-EXPO_PUBLIC_API_URL=http://192.168.0.105:8000/api
-```
+- keep the current `EXPO_PUBLIC_API_URL` value unchanged
+- start Expo normally
 
-Replace `192.168.0.105` with your actual laptop IP address.
+If you must replace it in your own private environment:
 
-The phone and laptop must be connected to the same Wi-Fi network.
+- start a tunnel that exposes the Laravel backend
+- update `mobile/.env` privately so `EXPO_PUBLIC_API_URL` points to the reachable backend base URL
+- do not publish private tunnel URLs if they are temporary
 
----
+## Pusher Setup
 
-# Example Structured Answers for Testing
+Realtime multiplayer depends on private Pusher credentials.
 
-## Uppercase String
+Required backend variables:
 
-Question:
+- `BROADCAST_DRIVER`
+- `PUSHER_APP_ID`
+- `PUSHER_APP_KEY`
+- `PUSHER_APP_SECRET`
+- `PUSHER_APP_CLUSTER`
 
-```text
-Write Python code that converts the string "python" to uppercase and prints the result.
-```
+Required frontend/mobile variables:
 
-Answer:
+- `VITE_PUSHER_APP_KEY`
+- `VITE_PUSHER_APP_CLUSTER`
+- `EXPO_PUBLIC_PUSHER_APP_KEY`
+- `EXPO_PUBLIC_PUSHER_APP_CLUSTER`
 
-```python
-print("python".upper())
-```
+Broadcast auth route used by the clients:
 
-Alternative answer:
+- `/broadcasting/auth`
 
-```python
-text = "python"
-print(text.upper())
-```
+## Ollama and Qwen Setup
 
----
+Backend integration uses:
 
-## List Append
+- `OLLAMA_BASE_URL`
+- `OLLAMA_MODEL`
+- `OLLAMA_CONNECT_TIMEOUT`
+- `OLLAMA_VALIDATION_TIMEOUT`
+- `OLLAMA_HINT_TIMEOUT`
 
-Question:
+Pull the model if needed:
 
-```text
-Write Python code that creates a list called items and adds the value "apple" to the end of the list.
-```
-
-Answer:
-
-```python
-items = []
-items.append("apple")
-print(items)
-```
-
----
-
-## Recursion
-
-Question:
-
-```text
-Explain what recursion means and write a simple recursive function example.
-```
-
-Answer:
-
-```python
-# Recursion means a function calls itself.
-
-def countdown(n):
-    if n <= 0:
-        return
-    print(n)
-    countdown(n - 1)
-```
-
----
-
-## Square Root Import
-
-Question:
-
-```text
-Explain what from math import sqrt allows you to do. Give a short code example.
-```
-
-Answer:
-
-```python
-from math import sqrt
-
-result = sqrt(25)
-print(result)
-```
-
----
-
-# Useful Docker Commands
-
-Start containers:
-
-```bash
-docker compose up -d
-```
-
-Rebuild and start containers:
-
-```bash
-docker compose up -d --build
-```
-
-Stop containers:
-
-```bash
-docker compose down
-```
-
-Check running containers:
-
-```bash
-docker ps
-```
-
-Check backend logs:
-
-```bash
-docker logs --tail 80 codenopoly-backend
-```
-
-Check frontend logs:
-
-```bash
-docker logs --tail 80 codenopoly-frontend
-```
-
-Check Laravel logs:
-
-```bash
-docker exec -it codenopoly-backend tail -n 100 storage/logs/laravel.log
-```
-
-Clear Laravel cache:
-
-```bash
-docker exec -it codenopoly-backend php artisan config:clear
-docker exec -it codenopoly-backend php artisan cache:clear
-docker exec -it codenopoly-backend php artisan route:clear
-```
-
-Run migrations:
-
-```bash
-docker exec -it codenopoly-backend php artisan migrate
-```
-
-Run seeders:
-
-```bash
-docker exec -it codenopoly-backend php artisan db:seed
-```
-
-Fresh migrate and seed:
-
-```bash
-docker exec -it codenopoly-backend php artisan migrate:fresh --seed
-```
-
-Create storage link:
-
-```bash
-docker exec -it codenopoly-backend php artisan storage:link
-```
-
-Pull Qwen model:
-
-```bash
+```powershell
 docker exec -it codenopoly-ollama ollama pull qwen2.5-coder:1.5b
 ```
 
-Run Qwen manually:
+Optional manual verification:
 
-```bash
+```powershell
 docker exec -it codenopoly-ollama ollama run qwen2.5-coder:1.5b
 ```
 
----
+## Default Local URLs
 
-# Troubleshooting
+- Web: `http://localhost:5173`
+- Backend: `http://localhost:8000`
+- MySQL host access: `localhost:3307`
+- Ollama: `http://localhost:11434`
 
-## Frontend Container Keeps Restarting
+## Build and Test Commands
 
-Check frontend logs:
+### Backend
 
-```bash
-docker logs --tail 80 codenopoly-frontend
+```powershell
+php artisan about
+php artisan route:list
+php artisan test
 ```
 
-Common issue:
+### Web
 
-```text
-/app/package.json not found
+```powershell
+npm run build
+npm run lint
 ```
 
-Fix:
+### Mobile
 
-Make sure the frontend service in `docker-compose.yml` points to the `web` folder:
-
-```yaml
-frontend:
-  build:
-    context: ./web
-    dockerfile: Dockerfile
-  volumes:
-    - ./web:/app
-    - /app/node_modules
+```powershell
+npm run lint
+npx tsc --noEmit
+npx expo-doctor
 ```
 
----
+## Demo Instructions
 
-## Backend Cannot Connect to MySQL
+Typical demo flow:
 
-Make sure `backend/.env` uses:
+1. Start backend, database, frontend, and Ollama.
+2. Open the web app and log in or register.
+3. Create a game and note the game code.
+4. Join from another browser or device.
+5. Start the game as host.
+6. Roll dice, scan a physical tile/card, answer the question, and observe realtime updates.
+7. For structured questions, verify Ollama/Qwen is running so AI validation and hint generation work.
 
-```env
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_PORT=3306
-DB_DATABASE=codenopoly
-DB_USERNAME=codenopoly_user
-DB_PASSWORD=secret
-```
+Use separate browsers or devices for separate players to avoid session conflicts.
 
-Then clear config:
+## Troubleshooting
 
-```bash
-docker exec -it codenopoly-backend php artisan config:clear
-```
+- Web build works but web lint fails:
+  - there is currently an unused `UserResponse` type in `web/src/stores/auth.ts`
+- Mobile lint currently passes with warnings:
+  - several React Hook dependency warnings and one array-type style warning are present
+- Expo Doctor reports dependency drift:
+  - Expo SDK package versions are slightly out of sync and `react-native-nfc-manager` is flagged as untested on the New Architecture
+- Backend cannot connect to MySQL:
+  - verify Docker is running and the backend env points to the correct DB host for the chosen runtime
+- Mobile cannot reach API:
+  - verify `EXPO_PUBLIC_API_URL` points to a reachable LAN/ngrok/backend URL
+- Realtime does not update:
+  - verify Pusher credentials exist in the private env files and that `/broadcasting/auth` works
+- AI hints/validation fail:
+  - verify Ollama is running and `qwen2.5-coder:1.5b` is pulled
 
----
+## Security Notes
 
-## Profile Picture Does Not Show
+- Working `.env` files were preserved and are not documented with secret values.
+- If the submission package includes private `.env` files for lecturer convenience, it should be shared privately only.
+- Do not publish archives containing working Pusher, database, or ngrok credentials.
 
-Run:
+## Submission Contents
 
-```bash
-docker exec -it codenopoly-backend php artisan storage:link
-```
+The submission package should include at minimum:
 
-Check that the uploaded file exists:
+- `backend/`
+- `web/`
+- `mobile/`
+- `docker-compose.yml`
+- `codenopoly.sql`
+- lock files
+- README files
+- `.env.example` files
+- `SUBMISSION_CHECKLIST.md`
+- `LECTURER_QUICK_START.md`
+- `SUBMISSION_READINESS_REPORT.md`
 
-```bash
-docker exec -it codenopoly-backend ls storage/app/public/profile-photos
-```
-
-The image should be accessible from:
-
-```text
-http://localhost:8000/storage/profile-photos/<file-name>
-```
-
----
-
-## Qwen Gives 0 Credits for a Correct Answer
-
-Check Laravel logs:
-
-```bash
-docker exec -it codenopoly-backend tail -n 100 storage/logs/laravel.log
-```
-
-Check latest answer records:
-
-```sql
-SELECT id, question_id, selected_answer, is_correct, earned_credits, feedback, answered_at
-FROM player_answers
-ORDER BY id DESC
-LIMIT 5;
-```
-
-Possible causes:
-
-- Qwen model is not downloaded
-- Ollama container is not running
-- Laravel cannot connect to Ollama
-- Qwen response is not valid JSON
-- The question does not have `expected_answer` or `rubric`
-
----
-
-## Qwen Model Is Missing
-
-Pull the model again:
-
-```bash
-docker exec -it codenopoly-ollama ollama pull qwen2.5-coder:1.5b
-```
-
----
-
-## DBeaver Cannot Connect to MySQL
-
-Use:
-
-```text
-Host: localhost
-Port: 3307
-Username: codenopoly_user
-Password: secret
-```
-
-If DBeaver shows public key retrieval error, add:
-
-```text
-allowPublicKeyRetrieval = true
-useSSL = false
-```
-
----
-
-# Notes
-
-- XAMPP is not required when using Docker.
-- Docker MySQL uses host port `3307`.
-- Laravel inside Docker connects to MySQL using `DB_HOST=mysql`.
-- Laravel inside Docker connects to Ollama using `OLLAMA_BASE_URL=http://ollama:11434`.
-- The mobile app should be run separately using Expo Go.
-- Use different browsers when testing multiple players.
-- Run `php artisan storage:link` only during first setup or when the storage link is missing.
-- If real Pusher credentials are included in the submitted ZIP, do not publish the ZIP publicly.
-
----
-
-# Project Status
-
-Current working features:
-
-- Docker setup
-- Laravel backend
-- Vue frontend
-- MySQL database
-- Ollama + Qwen
-- MCQ question validation
-- Structured question validation
-- AI feedback
-- AI hint generation
-- Credits update
-- Leaderboard update
-- Profile picture upload
-- Property and rent system
-- Card scanning system
-
----
-
-# Credits
-
-This project was developed as a final-year software engineering project to support interactive Python programming learning through a hybrid physical-digital game experience.
-
-The AI-assisted validation feature uses Qwen through Ollama to provide local, free, and privacy-friendly answer checking for structured programming responses.
+See [LECTURER_QUICK_START.md](/C:/Users/User/Documents/jenn/codenopoly/LECTURER_QUICK_START.md) for the shortest startup path and [SUBMISSION_READINESS_REPORT.md](/C:/Users/User/Documents/jenn/codenopoly/SUBMISSION_READINESS_REPORT.md) for validation results and known limitations.

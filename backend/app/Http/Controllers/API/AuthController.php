@@ -4,13 +4,25 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Auth\Passwords\PasswordBroker;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    private function buildResetPasswordUrl(User $user, string $token): string
+    {
+        $frontendUrl = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost')), '/');
+        $email = urlencode($user->getEmailForPasswordReset());
+
+        return "{$frontendUrl}/reset-password?token={$token}&email={$email}";
+    }
+
     private function formatUser(User $user): array
     {
         return [
@@ -97,6 +109,65 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Login successful',
             'user' => $this->formatUser($user),
+        ]);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $fields = $request->validate([
+            'email' => 'required|string|email',
+        ]);
+
+        $user = User::where('email', $fields['email'])->first();
+
+        if ($user && app()->environment(['local', 'testing'])) {
+            /** @var PasswordBroker $passwordBroker */
+            $passwordBroker = Password::broker();
+            $token = $passwordBroker->createToken($user);
+
+            return response()->json([
+                'message' => 'Password reset link generated successfully.',
+                'reset_url' => $this->buildResetPasswordUrl($user, $token),
+            ]);
+        }
+
+        Password::sendResetLink([
+            'email' => $fields['email'],
+        ]);
+
+        return response()->json([
+            'message' => 'If an account with that email exists, a password reset link has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $fields = $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|string|email',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $status = Password::reset(
+            $fields,
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return response()->json([
+                'message' => __($status),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Password has been reset successfully.',
         ]);
     }
     

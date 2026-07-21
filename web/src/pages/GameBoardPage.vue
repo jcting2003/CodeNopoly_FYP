@@ -4,7 +4,7 @@
 
     <!-- SideNavBar -->
     <aside
-      class="fixed left-0 top-0 h-full flex flex-col p-4 z-40 bg-slate-100/50 backdrop-blur-lg w-64 rounded-r-2xl pt-24 text-sm"
+      class="fixed left-0 top-0 h-full flex flex-col p-4 z-40 bg-slate-100/50 backdrop-blur-lg w-64 rounded-r-2xl pt-24 text-sm game-sidebar"
     >
       <div class="mb-8 px-2">
         <div class="flex items-center gap-3 mb-1">
@@ -41,6 +41,18 @@
         >
           <span class="material-symbols-outlined">group</span>
           <span>Players</span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeSidebarTab = 'myProperties'"
+          class="w-full rounded-xl font-bold flex items-center gap-3 p-3 transition-all duration-300 text-left"
+          :class="activeSidebarTab === 'myProperties'
+            ? 'bg-white text-purple-700 shadow-sm'
+            : 'text-slate-600 hover:bg-white/70'"
+        >
+          <span class="material-symbols-outlined">home_work</span>
+          <span>My Properties</span>
         </button>
 
         <button
@@ -136,6 +148,91 @@
             No players found.
           </p>
         </div>
+
+        <div v-if="activeSidebarTab === 'myProperties'" class="mt-6 px-2 space-y-4">
+          <div
+            v-if="pendingRent"
+            class="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-900"
+          >
+            <p class="text-xs font-black uppercase tracking-[2px]">Pending Rent</p>
+            <p class="mt-2 text-sm font-bold">
+              Resolve {{ pendingRent.amount }} Cr before ending your turn.
+            </p>
+            <button
+              type="button"
+              @click="handleDeclareBankruptcy"
+              :disabled="declaringBankruptcy"
+              class="mt-3 w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {{ declaringBankruptcy ? 'Declaring...' : 'Declare Bankruptcy' }}
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 px-2">
+            Property cards are shown in the main panel.
+          </p>
+        </div>
+      </div>
+
+      <div v-if="activeSidebarTab === 'board'" class="sidebar-board-actions">
+        <button
+          v-if="canBuyCurrentProperty"
+          type="button"
+          @click="handleBuyProperty"
+          :disabled="buyingProperty"
+          class="w-full px-6 py-4 bg-gradient-to-r from-primary to-primary-dim text-white rounded-2xl font-headline font-bold hover:shadow-xl transition-colors active:scale-95 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ buyingProperty ? 'Buying...' : 'Buy Property' }}
+        </button>
+
+        <button
+          v-if="canBuyHouseForCurrentProperty"
+          type="button"
+          @click="handleBuyHouse"
+          :disabled="buyingHouse"
+          class="w-full px-6 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-2xl font-headline font-bold hover:shadow-xl transition-colors active:scale-95 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ buyingHouse ? 'Buying House...' : `Buy House (${currentProperty?.house_cost ?? 0} Cr)` }}
+        </button>
+
+        <button
+          v-if="canBuyHotelForCurrentProperty"
+          type="button"
+          @click="handleBuyHotel"
+          :disabled="buyingHotel"
+          class="w-full px-6 py-4 bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 text-white rounded-2xl font-headline font-bold hover:shadow-xl transition-colors active:scale-95 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ buyingHotel ? 'Buying Hotel...' : `Buy Hotel (${currentProperty?.hotel_cost ?? 0} Cr)` }}
+        </button>
+
+        <button
+          v-if="canPayRentForCurrentProperty"
+          type="button"
+          @click="handlePayRent"
+          :disabled="payingRent"
+          class="w-full px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-headline font-bold hover:shadow-xl transition-colors active:scale-95 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ payingRent ? 'Paying...' : `Pay Rent (${currentRentAmount} Cr)` }}
+        </button>
+
+        <button
+          v-if="isCurrentUserTurn"
+          type="button"
+          @click="handleEndTurn"
+          :disabled="endingTurn || !!pendingRent"
+          class="w-full px-6 py-4 bg-gradient-to-r from-secondary to-secondary-dim text-white rounded-2xl font-headline font-extrabold shadow-xl shadow-secondary/20 hover:shadow-2xl transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ endingTurn ? 'Ending Turn...' : 'End Turn' }}
+        </button>
+
+        <button
+          v-if="isCurrentUserHost"
+          type="button"
+          @click="handleEndGame"
+          :disabled="endingGame"
+          class="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-headline font-extrabold shadow-xl hover:shadow-2xl transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {{ endingGame ? 'Ending Game...' : 'End Game' }}
+        </button>
       </div>
 
       <button
@@ -150,7 +247,7 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="ml-64 pt-24 pb-24 px-8 min-h-screen">
+    <main class="ml-64 pt-24 pb-24 px-8 min-h-screen game-main">
       <div class="max-w-6xl mx-auto">
         <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
@@ -304,13 +401,6 @@
                   <span class="material-symbols-outlined">refresh</span>
                   {{ rollingDice ? 'Rolling...' : 'Roll Dice' }}
                 </button>
-
-                <button
-                  type="button"
-                  class="px-8 py-4 bg-surface-container-highest text-on-surface rounded-full font-headline font-bold hover:bg-surface-container-high transition-colors"
-                >
-                  View Probabilities
-                </button>
               </div>
             </div>
           </div>
@@ -354,15 +444,8 @@
                   :disabled="isCardTile || isHostOnlyView || scanningTile || !isCurrentUserTurn || !hasRolledThisTurn"
                   class="w-full px-4 py-3 rounded-xl bg-tertiary text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {{ scanningTile ? 'Scanning...' : 'Scan Tile (QR Test)' }}
+                  {{ scanningTile ? 'Scanning...' : 'Detect Tile' }}
                 </button>
-
-                <div class="flex items-center gap-4">
-                  <div class="w-full h-3 bg-white/40 rounded-full overflow-hidden">
-                    <div class="h-full bg-tertiary w-1/3 animate-pulse"></div>
-                  </div>
-                  <span class="text-xs font-bold text-on-tertiary-container">33%</span>
-                </div>
               </div>
             </div>
 
@@ -389,45 +472,6 @@
               >
                 {{ scanningCard ? 'Scanning Card...' : 'Scan Drawn Card' }}
               </button>
-            </div>
-
-            <div class="bg-white p-4 rounded-2xl flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-slate-600">contactless</span>
-              </div>
-              <p class="text-sm font-medium leading-tight">
-                Scan tile on physical board to confirm position
-              </p>
-            </div>
-          </div>
-
-          <!-- Syntax State -->
-          <div class="col-span-12 lg:col-span-4 bg-surface-container-high rounded-[2rem] p-8">
-            <h2 class="text-xl font-headline font-bold mb-6">Syntax State</h2>
-
-            <div class="space-y-4">
-              <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                <span class="text-sm font-medium opacity-70">Current Turn Player</span>
-                <span class="px-2 py-1 bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded">
-                  {{ currentTurnName || '—' }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                <span class="text-sm font-medium opacity-70">Last Dice Roll</span>
-                <span class="font-headline font-bold">{{ lastDiceRoll ?? '—' }}</span>
-              </div>
-
-              <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                <span class="text-sm font-medium opacity-70">Game Status</span>
-
-                <span
-                  class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
-                  :class="statusBadgeClass"
-                >
-                  {{ statusLabel }}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -479,6 +523,103 @@
               </div>
             </div>
           </div>
+
+          <!-- Syntax State -->
+          <div class="col-span-12 lg:col-span-4 bg-surface-container-high rounded-[2rem] p-8 syntax-state-panel">
+            <h2 class="text-xl font-headline font-bold mb-6">Syntax State</h2>
+
+            <div class="space-y-4">
+              <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
+                <span class="text-sm font-medium opacity-70">Current Turn Player</span>
+                <span class="px-2 py-1 bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded">
+                  {{ currentTurnName || '—' }}
+                </span>
+              </div>
+
+              <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
+                <span class="text-sm font-medium opacity-70">Last Dice Roll</span>
+                <span class="font-headline font-bold">{{ lastDiceRoll ?? '—' }}</span>
+              </div>
+
+              <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl">
+                <span class="text-sm font-medium opacity-70">Game Status</span>
+
+                <span
+                  class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
+                  :class="statusBadgeClass"
+                >
+                  {{ statusLabel }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          
+        </div>
+
+        <div
+          v-if="activeSidebarTab === 'board'"
+          class="mt-12 flex justify-end gap-4 board-action-row"
+        >
+          <button
+            v-if="canBuyCurrentProperty"
+            type="button"
+            @click="handleBuyProperty"
+            :disabled="buyingProperty"
+            class="px-10 py-5 bg-gradient-to-r from-primary to-primary-dim text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ buyingProperty ? 'Buying...' : 'Buy Property' }}
+          </button>
+
+          <button
+            v-if="canBuyHouseForCurrentProperty"
+            type="button"
+            @click="handleBuyHouse"
+            :disabled="buyingHouse"
+            class="px-10 py-5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ buyingHouse ? 'Buying House...' : `Buy House (${currentProperty?.house_cost ?? 0} Cr)` }}
+          </button>
+
+          <button
+            v-if="canBuyHotelForCurrentProperty"
+            type="button"
+            @click="handleBuyHotel"
+            :disabled="buyingHotel"
+            class="px-10 py-5 bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ buyingHotel ? 'Buying Hotel...' : `Buy Hotel (${currentProperty?.hotel_cost ?? 0} Cr)` }}
+          </button>
+
+          <button
+            v-if="canPayRentForCurrentProperty"
+            type="button"
+            @click="handlePayRent"
+            :disabled="payingRent"
+            class="px-10 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ payingRent ? 'Paying...' : `Pay Rent (${currentRentAmount} Cr)` }}
+          </button>
+
+          <button
+            v-if="isCurrentUserTurn"
+            type="button"
+            @click="handleEndTurn"
+            :disabled="endingTurn"
+            class="px-12 py-5 bg-gradient-to-r from-secondary to-secondary-dim text-white rounded-full font-headline font-extrabold text-xl shadow-xl shadow-secondary/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ endingTurn ? 'Ending Turn...' : 'End Turn' }}
+          </button>
+
+          <button
+            v-if="isCurrentUserHost"
+            type="button"
+            @click="handleEndGame"
+            :disabled="endingGame"
+            class="px-12 py-5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-headline font-extrabold text-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {{ endingGame ? 'Ending Game...' : 'End Game' }}
+          </button>
         </div>
 
         <!-- Players Tab -->
@@ -563,6 +704,66 @@
           </div>
         </div>
 
+        <div
+          v-if="activeSidebarTab === 'myProperties'"
+          class="space-y-8"
+        >
+          <section class="rounded-[2rem] bg-surface-container-lowest p-8 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+            <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p class="text-xs font-black uppercase tracking-[0.28em] text-slate-500">
+                  Property Portfolio
+                </p>
+                <h2 class="mt-3 text-4xl font-black tracking-tight text-slate-900">
+                  My Properties
+                </h2>
+                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
+                  Digital versions of your physical CodeNopoly property cards, ordered by board position.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 md:min-w-[18rem]">
+                <div class="rounded-2xl bg-slate-50 px-4 py-4 text-right">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Owned</p>
+                  <p class="mt-1 text-2xl font-black text-slate-900">{{ sortedMyProperties.length }}</p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 px-4 py-4 text-right">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Pending Rent</p>
+                  <p class="mt-1 text-2xl font-black text-amber-700">{{ pendingRent?.amount ?? 0 }} Cr</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            v-if="sortedMyProperties.length > 0"
+            class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"
+          >
+            <PropertyCard
+              v-for="property in sortedMyProperties"
+              :key="property.property_id"
+              :property="property"
+              :selling="isSellingProperty(property.property_id)"
+              @sell="handleSellAsset(property, $event)"
+            />
+          </section>
+
+          <section
+            v-else-if="!loadingMyProperties"
+            class="rounded-[2rem] border-2 border-dashed border-slate-300 bg-white/70 px-8 py-14 text-center"
+          >
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-500">
+              <span class="material-symbols-outlined text-3xl">home_work</span>
+            </div>
+            <h3 class="mt-5 text-2xl font-black text-slate-900">
+              You do not currently own any properties.
+            </h3>
+            <p class="mt-3 text-sm text-slate-500">
+              Buy property cards during your turns and they will appear here in board order.
+            </p>
+          </section>
+        </div>
+
         <!-- Code Lab Tab -->
         <div
           v-if="activeSidebarTab === 'codeLab'"
@@ -590,11 +791,6 @@
                     {{ activeQuestion.credits }} Credits
                   </p>
                 </div>
-              </div>
-
-              <div class="px-4 py-2 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-base">timer</span>
-                00:45
               </div>
             </div>
 
@@ -702,6 +898,7 @@
             <div class="mt-10 space-y-6">
               <div class="flex items-center justify-between gap-4">
                 <button
+                  v-if="activeQuestion?.question_type === 'structured'"
                   type="button"
                   @click="handleGetHint"
                   :disabled="loadingHint || !activeQuestion || !!answerResult"
@@ -798,94 +995,9 @@
             </button>
           </div>
         </div>
-        <div v-if="activeSidebarTab === 'board'" class="mt-12 flex justify-end gap-4">
-          <button
-            v-if="canBuyCurrentProperty"
-            type="button"
-            @click="handleBuyProperty"
-            :disabled="buyingProperty"
-            class="px-10 py-5 bg-gradient-to-r from-primary to-primary-dim text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ buyingProperty ? 'Buying...' : 'Buy Property' }}
-          </button>
-
-          <button
-            v-if="canBuyHouseForCurrentProperty"
-            type="button"
-            @click="handleBuyHouse"
-            :disabled="buyingHouse"
-            class="px-10 py-5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ buyingHouse ? 'Buying House...' : `Buy House (${currentProperty?.house_cost ?? 0} Cr)` }}
-          </button>
-
-          <button
-            v-if="canBuyHotelForCurrentProperty"
-            type="button"
-            @click="handleBuyHotel"
-            :disabled="buyingHotel"
-            class="px-10 py-5 bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ buyingHotel ? 'Buying Hotel...' : `Buy Hotel (${currentProperty?.hotel_cost ?? 0} Cr)` }}
-          </button>
-
-          <button
-            v-if="canPayRentForCurrentProperty"
-            type="button"
-            @click="handlePayRent"
-            :disabled="payingRent"
-            class="px-10 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-headline font-bold hover:shadow-xl transition-colors scale-95 active:scale-90 duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ payingRent ? 'Paying...' : `Pay Rent (${currentRentAmount} Cr)` }}
-          </button>
-
-          <button
-            v-if="isCurrentUserTurn"
-            type="button"
-            @click="handleEndTurn"
-            :disabled="endingTurn"
-            class="px-12 py-5 bg-gradient-to-r from-secondary to-secondary-dim text-white rounded-full font-headline font-extrabold text-xl shadow-xl shadow-secondary/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ endingTurn ? 'Ending Turn...' : 'End Turn' }}
-          </button>
-
-          <button
-            v-if="isCurrentUserHost"
-            type="button"
-            @click="handleEndGame"
-            :disabled="endingGame"
-            class="px-12 py-5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-headline font-extrabold text-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ endingGame ? 'Ending Game...' : 'End Game' }}
-          </button>
-        </div>
       </div>
     </main>
 
-    <!-- BottomNavBar -->
-    <nav
-      class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 h-20 bg-white/90 backdrop-blur-md shadow-[0_-10px_30px_rgba(0,0,0,0.04)]"
-    >
-      <div class="flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-all active:scale-90 duration-200">
-        <span class="material-symbols-outlined">directions_run</span>
-        <span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest">Move</span>
-      </div>
-
-      <div class="flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-all active:scale-90 duration-200">
-        <span class="material-symbols-outlined">style</span>
-        <span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest">Cards</span>
-      </div>
-
-      <div class="flex flex-col items-center justify-center bg-blue-600 text-white rounded-full w-14 h-14 -mt-10 shadow-lg shadow-blue-500/40 active:scale-90 duration-200">
-        <span class="material-symbols-outlined">auto_awesome</span>
-        <span class="font-['Space_Grotesk'] text-[8px] uppercase tracking-widest">Roll</span>
-      </div>
-
-      <div class="flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-all active:scale-90 duration-200">
-        <span class="material-symbols-outlined">account_circle</span>
-        <span class="font-['Space_Grotesk'] text-[10px] uppercase tracking-widest">Profile</span>
-      </div>
-    </nav>
         <div
       v-if="difficultyModalOpen && activeTile"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
@@ -941,7 +1053,7 @@
       </div>
     </div>
 
-      <div
+    <div
       v-if="cardResultModalOpen && cardResult"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
     >
@@ -995,6 +1107,127 @@
       </div>
     </div>
 
+    <div
+      v-if="taxResultModalOpen && taxResult"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+    >
+      <div class="w-full max-w-xl rounded-[2rem] bg-white p-8 shadow-2xl">
+        <div class="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-widest text-amber-600">
+              Tax Tile
+            </p>
+            <h2 class="mt-2 text-2xl font-headline font-bold text-slate-900">
+              {{ taxResult.title }}
+            </h2>
+            <p class="mt-2 text-sm text-slate-500">
+              {{ taxResult.message }}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            @click="closeTaxResultModal"
+            class="text-slate-500 hover:text-slate-900"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="rounded-2xl border bg-surface-container-lowest p-5">
+          <p class="mb-2 font-bold text-amber-600">
+            {{ taxResult.tile_name }} deducted {{ taxResult.amount }} credits.
+          </p>
+          <p class="text-sm text-slate-600">
+            Current credits: {{ taxResult.current_credits }}
+          </p>
+          <p class="text-sm text-slate-600">
+            Total credits: {{ taxResult.total_credits }}
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+          <button
+            type="button"
+            @click="closeTaxResultModal"
+            class="rounded-full bg-primary px-6 py-3 font-bold text-white"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="rentAlert.open"
+      class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm"
+      @click="closeRentAlert"
+    >
+      <div
+        class="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-8 shadow-2xl"
+        @click.stop
+      >
+        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
+          Realtime Update
+        </p>
+        <h2 class="mt-3 text-2xl font-headline font-bold text-slate-900">
+          {{ rentAlert.title }}
+        </h2>
+        <p class="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">
+          {{ rentAlert.message }}
+        </p>
+
+        <div class="mt-6 flex justify-end">
+          <button
+            type="button"
+            @click="closeRentAlert"
+            class="rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-dim"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="confirmDialog.open"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm"
+      @click="resolveConfirmDialog(false)"
+    >
+      <div
+        class="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 shadow-2xl"
+        @click.stop
+      >
+        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
+          Confirmation
+        </p>
+        <h2 class="mt-3 text-2xl font-headline font-bold text-slate-900">
+          {{ confirmDialog.title }}
+        </h2>
+        <p class="mt-3 text-sm leading-6 text-slate-600">
+          {{ confirmDialog.message }}
+        </p>
+
+        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            @click="resolveConfirmDialog(false)"
+            class="rounded-full border border-slate-300 px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+          >
+            {{ confirmDialog.cancelLabel }}
+          </button>
+          <button
+            type="button"
+            @click="resolveConfirmDialog(true)"
+            class="rounded-full px-6 py-3 text-sm font-bold text-white transition"
+            :class="confirmDialog.confirmClass"
+          >
+            {{ confirmDialog.confirmLabel }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="fixed inset-0 pointer-events-none -z-10 opacity-30">
       <div class="absolute top-1/4 right-[-5%] w-[400px] h-[400px] bg-primary/10 blur-[100px] rounded-full"></div>
       <div class="absolute bottom-[-10%] left-[10%] w-[500px] h-[500px] bg-secondary/10 blur-[120px] rounded-full"></div>
@@ -1003,10 +1236,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import Navbar from '@/components/NavBar.vue'
+import PropertyCard from '@/components/PropertyCard.vue'
 import api from '@/services/api'
 import echo from '@/lib/echo'
 import { useAuthStore } from '@/stores/auth'
@@ -1022,6 +1256,10 @@ type LeaderboardPlayer = {
   last_property_bought_turn?: number | null
   last_question_answered_turn?: number | null
   last_card_scanned_turn?: number | null
+  is_bankrupt?: boolean
+  pending_rent_amount?: number | null
+  pending_rent_property_id?: number | null
+  pending_rent_owner_id?: number | null
 }
 
 type LeaderboardResponse = {
@@ -1051,6 +1289,11 @@ type CurrentTurnResponse = {
   last_dice_roll?: number | null
   current_turn_user_id?: number | null
   current_turn_user_name?: string | null
+  pending_rent?: {
+    amount: number
+    property_id: number | null
+    owner_user_id: number | null
+  } | null
 }
 
 type RollDiceResponse = {
@@ -1064,6 +1307,15 @@ type RollDiceResponse = {
   current_position?: number
   tile_name?: string
   current_tile?: string
+  tax_effect?: {
+    title: string
+    amount: number
+    message: string
+    current_credits: number
+    total_credits: number
+    tile_number: number
+    tile_name: string
+  } | null
 }
 
 type RankedPlayer = {
@@ -1080,6 +1332,10 @@ type RankedPlayer = {
   progressWidth: number
   last_question_answered_turn?: number | null
   last_card_scanned_turn?: number | null
+  isBankrupt?: boolean
+  pendingRentAmount?: number | null
+  pendingRentPropertyId?: number | null
+  pendingRentOwnerId?: number | null
 }
 
 type EndTurnResponse = {
@@ -1113,6 +1369,18 @@ type DiceRolledEvent = {
 type LeaderboardUpdatedEvent = {
   game_id: number
   leaderboard: LeaderboardPlayer[]
+}
+
+type RentPaidEvent = {
+  game_id: number
+  tenant_user_id: number
+  tenant_user_name: string
+  owner_user_id: number
+  owner_user_name: string
+  rent_amount: number
+  property_name: string
+  tenant_credits: number
+  owner_credits: number
 }
 
 type GameEndedEvent = {
@@ -1167,6 +1435,22 @@ type SubmitAnswerResponse = {
   feedback?: string
 }
 
+type PersistedQuestionState = {
+  gameId: number
+  userId: number
+  turnNumber: number | null
+  currentTurnUserId: number | null
+  currentPosition: number | null
+  activeSidebarTab: 'board' | 'players' | 'myProperties' | 'codeLab'
+  activeTile: ScanTileResponse['tile'] | null
+  activeQuestion: QuestionData | null
+  selectedDifficulty: string
+  selectedAnswer: string
+  structuredAnswer: string
+  questionHint: string
+  answerResult: SubmitAnswerResponse | null
+}
+
 type GameProperty = {
   game_property_id: number
   property_id: number
@@ -1184,6 +1468,7 @@ type GameProperty = {
   rent_3_houses: number
   rent_4_houses: number
   rent_hotel: number
+  can_upgrade: boolean
   owner_user_id: number | null
   owner_name: string | null
   houses: number
@@ -1194,6 +1479,57 @@ type GamePropertiesResponse = {
   game_id: number
   status: string
   properties: GameProperty[]
+}
+
+type MyProperty = {
+  property_id: number
+  property_name: string
+  tile_number: number | null
+  color_group: string
+  owner_name: string | null
+  purchase_price: number
+  base_rent: number
+  rent_1_house: number
+  rent_2_houses: number
+  rent_3_houses: number
+  rent_4_houses: number
+  rent_hotel: number
+  house_purchase_cost: number
+  hotel_purchase_cost: number
+  can_upgrade: boolean
+  houses: number
+  has_hotel: boolean
+  house_resale_value: number
+  hotel_resale_value: number
+  property_resale_value: number
+  current_expected_rent: number
+  can_sell_house: boolean
+  can_sell_hotel: boolean
+  can_sell_property: boolean
+}
+
+type MyPropertiesResponse = {
+  game_id: number
+  player: {
+    user_id: number
+    credits: number
+    total_credits: number
+    is_bankrupt: boolean
+    pending_rent_amount: number | null
+    pending_rent_property_id: number | null
+    pending_rent_owner_id: number | null
+  }
+  properties: MyProperty[]
+}
+
+type SellAssetResponse = {
+  message: string
+  asset_type: 'house' | 'hotel' | 'property'
+  credits_gained: number
+  current_credits: number
+  pending_rent_amount: number | null
+  can_pay_pending_rent: boolean
+  leaderboard?: LeaderboardPlayer[]
 }
 
 type BuyPropertyResponse = {
@@ -1324,10 +1660,31 @@ const buyingProperty = ref(false)
 const payingRent = ref(false)
 const buyingHouse = ref(false)
 const buyingHotel = ref(false)
+const declaringBankruptcy = ref(false)
 const rentPaidThisTurn = ref(false)
 const houseBoughtThisTurn = ref(false)
 const propertyBoughtThisTurn = ref(false)
 const questionAnsweredThisTurn = ref(false)
+const loadingMyProperties = ref(false)
+const myProperties = ref<MyProperty[]>([])
+const sellingPropertyIds = ref<number[]>([])
+const pendingRentFromTurn = ref<CurrentTurnResponse['pending_rent'] | null>(null)
+const confirmDialog = ref({
+  open: false,
+  title: '',
+  message: '',
+  confirmLabel: 'Confirm',
+  cancelLabel: 'Cancel',
+  confirmClass: 'bg-slate-900 hover:bg-slate-800',
+})
+const rentAlert = ref({
+  open: false,
+  title: '',
+  message: '',
+})
+
+let confirmDialogResolver: ((value: boolean) => void) | null = null
+let lastRentAlertKey = ''
 
 const scanningTile = ref(false)
 const qrInputValue = ref('')
@@ -1336,6 +1693,8 @@ const scanningCard = ref(false)
 const cardQrInputValue = ref('')
 const cardResultModalOpen = ref(false)
 const cardResult = ref<ScanCardResponse | null>(null)
+const taxResultModalOpen = ref(false)
+const taxResult = ref<NonNullable<RollDiceResponse['tax_effect']> | null>(null)
 
 const activeTile = ref<ScanTileResponse['tile'] | null>(null)
 const activeQuestion = ref<QuestionData | null>(null)
@@ -1345,11 +1704,15 @@ const answerResult = ref<SubmitAnswerResponse | null>(null)
 const difficultyModalOpen = ref(false)
 const availableDifficulties = ref<string[]>([])
 const selectedDifficulty = ref('')
-const activeSidebarTab = ref<'board' | 'players' | 'codeLab' >('board')
+const activeSidebarTab = ref<'board' | 'players' | 'myProperties' | 'codeLab' >('board')
 const structuredAnswer = ref('')
 const loadingHint = ref(false)
 const questionHint = ref('')
 const tileCache = ref<Record<number, TileByNumberResponse['tile']>>({})
+const questionStateStorageKey = computed(() => {
+  const userId = authStore.user?.id ?? 'guest'
+  return `codenopoly:web:game-board:${gameId}:question-state:${userId}`
+})
 
 type ErrorResponse = {
   message?: string
@@ -1402,6 +1765,26 @@ const currentPlayer = computed(() => {
   return rankedPlayers.value.find((player) => player.id === authStore.user?.id) || null
 })
 
+const pendingRent = computed(() => {
+  if (currentPlayer.value?.pendingRentAmount) {
+    return {
+      amount: currentPlayer.value.pendingRentAmount,
+      property_id: currentPlayer.value.pendingRentPropertyId ?? null,
+      owner_user_id: currentPlayer.value.pendingRentOwnerId ?? null,
+    }
+  }
+
+  return pendingRentFromTurn.value
+})
+
+const sortedMyProperties = computed(() => {
+  return [...myProperties.value].sort((a, b) => {
+    const tileA = a.tile_number ?? Number.MAX_SAFE_INTEGER
+    const tileB = b.tile_number ?? Number.MAX_SAFE_INTEGER
+    return tileA - tileB
+  })
+})
+
 const hasAnsweredQuestionThisTurn = computed(() => {
   return (
     currentPlayer.value?.last_question_answered_turn !== null &&
@@ -1417,6 +1800,7 @@ const canBuyCurrentProperty = computed(() => {
     !questionAnsweredThisTurn.value &&
     hasRolledThisTurn.value &&
     !hasAnsweredQuestionThisTurn.value &&
+    !pendingRent.value &&
     currentProperty.value.owner_user_id === null
   )
 })
@@ -1427,6 +1811,7 @@ const canPayRentForCurrentProperty = computed(() => {
     isCurrentUserTurn.value &&
     hasRolledThisTurn.value &&
     !rentPaidThisTurn.value &&
+    !currentPlayer.value?.isBankrupt &&
     currentProperty.value.owner_user_id !== null &&
     currentProperty.value.owner_user_id !== authStore.user?.id
   )
@@ -1439,6 +1824,8 @@ const canBuyHouseForCurrentProperty = computed(() => {
     hasRolledThisTurn.value &&
     !houseBoughtThisTurn.value &&
     !propertyBoughtThisTurn.value &&
+    !pendingRent.value &&
+    currentProperty.value.can_upgrade &&
     currentProperty.value.owner_user_id === authStore.user?.id &&
     !currentProperty.value.hotel &&
     currentProperty.value.houses < 4
@@ -1450,6 +1837,8 @@ const canBuyHotelForCurrentProperty = computed(() => {
     !!currentProperty.value &&
     isCurrentUserTurn.value &&
     hasRolledThisTurn.value &&
+    !pendingRent.value &&
+    currentProperty.value.can_upgrade &&
     currentProperty.value.owner_user_id === authStore.user?.id &&
     !currentProperty.value.hotel &&
     currentProperty.value.houses === 4
@@ -1518,6 +1907,7 @@ const refreshBoard = async () => {
       fetchGame(),
       fetchCurrentTurn(),
       fetchProperties(),
+      fetchMyProperties(),
     ])
 
     await fetchLeaderboard()
@@ -1532,6 +1922,88 @@ const refreshBoard = async () => {
   }
 }
 
+const clearPersistedQuestionState = () => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(questionStateStorageKey.value)
+}
+
+const persistQuestionState = () => {
+  if (typeof window === 'undefined') return
+
+  if (
+    activeSidebarTab.value !== 'codeLab' ||
+    !activeQuestion.value ||
+    !activeTile.value ||
+    !authStore.user?.id
+  ) {
+    clearPersistedQuestionState()
+    return
+  }
+
+  const state: PersistedQuestionState = {
+    gameId,
+    userId: authStore.user.id,
+    turnNumber: turnNumber.value,
+    currentTurnUserId: currentTurnUserId.value,
+    currentPosition: currentPosition.value,
+    activeSidebarTab: activeSidebarTab.value,
+    activeTile: activeTile.value,
+    activeQuestion: activeQuestion.value,
+    selectedDifficulty: selectedDifficulty.value,
+    selectedAnswer: selectedAnswer.value,
+    structuredAnswer: structuredAnswer.value,
+    questionHint: questionHint.value,
+    answerResult: answerResult.value,
+  }
+
+  localStorage.setItem(questionStateStorageKey.value, JSON.stringify(state))
+}
+
+const restorePersistedQuestionState = () => {
+  if (typeof window === 'undefined' || !authStore.user?.id) return
+
+  const rawState = localStorage.getItem(questionStateStorageKey.value)
+
+  if (!rawState) return
+
+  try {
+    const parsedState = JSON.parse(rawState) as PersistedQuestionState
+    const isSameGame = parsedState.gameId === gameId
+    const isSameUser = parsedState.userId === authStore.user.id
+    const isSameTurn = parsedState.turnNumber === turnNumber.value
+    const isStillUsersTurn =
+      parsedState.currentTurnUserId === authStore.user.id &&
+      currentTurnUserId.value === authStore.user.id
+    const isSameTile =
+      parsedState.activeTile?.tile_number !== undefined &&
+      parsedState.activeTile.tile_number === currentPosition.value &&
+      parsedState.currentPosition === currentPosition.value
+
+    if (
+      !isSameGame ||
+      !isSameUser ||
+      !isSameTurn ||
+      !isStillUsersTurn ||
+      !isSameTile ||
+      hasAnsweredQuestionThisTurn.value
+    ) {
+      clearPersistedQuestionState()
+      return
+    }
+
+    activeTile.value = parsedState.activeTile
+    activeQuestion.value = parsedState.activeQuestion
+    selectedDifficulty.value = parsedState.selectedDifficulty
+    selectedAnswer.value = parsedState.selectedAnswer
+    structuredAnswer.value = parsedState.structuredAnswer
+    questionHint.value = parsedState.questionHint
+    answerResult.value = parsedState.answerResult
+    activeSidebarTab.value = parsedState.activeSidebarTab
+  } catch {
+    clearPersistedQuestionState()
+  }
+}
+
 const fetchProperties = async () => {
   loadingProperties.value = true
   try {
@@ -1539,6 +2011,16 @@ const fetchProperties = async () => {
     gameProperties.value = response.data.properties || []
   } finally {
     loadingProperties.value = false
+  }
+}
+
+const fetchMyProperties = async () => {
+  loadingMyProperties.value = true
+  try {
+    const response = await api.get<MyPropertiesResponse>(`/api/games/${gameId}/my-properties`)
+    myProperties.value = response.data.properties || []
+  } finally {
+    loadingMyProperties.value = false
   }
 }
 
@@ -1586,6 +2068,10 @@ const fetchPlayers = async () => {
       last_property_bought_turn: null,
       last_question_answered_turn: player.last_question_answered_turn ?? null,
       last_card_scanned_turn: player.last_card_scanned_turn ?? null,
+      is_bankrupt: false,
+      pending_rent_amount: null,
+      pending_rent_property_id: null,
+      pending_rent_owner_id: null,
 
     }))
   )
@@ -1613,6 +2099,10 @@ const applyLeaderboard = (leaderboard: LeaderboardPlayer[]) => {
       position: typeof player.position === 'number' ? player.position : null,
       last_question_answered_turn: player.last_question_answered_turn ?? null,
       last_card_scanned_turn: player.last_card_scanned_turn ?? null,
+      isBankrupt: player.is_bankrupt ?? false,
+      pendingRentAmount: player.pending_rent_amount ?? null,
+      pendingRentPropertyId: player.pending_rent_property_id ?? null,
+      pendingRentOwnerId: player.pending_rent_owner_id ?? null,
       rank: index + 1,
       isCurrentTurn,
       isDimmed: !isCurrentTurn && index > 2,
@@ -1645,6 +2135,7 @@ const fetchCurrentTurn = async () => {
     currentTurnName.value = data.current_turn_user_name ?? null
     currentTurnText.value = data.current_turn_user_name || 'Waiting...'
     gameStatus.value = data.status || ''
+    pendingRentFromTurn.value = data.pending_rent ?? null
 
     hasRolledThisTurn.value = data.last_dice_roll !== null
   } finally {
@@ -1709,9 +2200,19 @@ const refreshLeaderboardInBackground = () => {
 const refreshBoardDataInBackground = () => {
   void Promise.all([
     fetchProperties(),
+    fetchMyProperties(),
     fetchLeaderboard(),
   ]).catch((error) => {
     console.error('Failed to refresh board data:', error)
+  })
+}
+
+const refreshPropertyDataInBackground = () => {
+  void Promise.all([
+    fetchProperties(),
+    fetchMyProperties(),
+  ]).catch((error) => {
+    console.error('Failed to refresh property data:', error)
   })
 }
 
@@ -1737,6 +2238,7 @@ const handleBoardVisibilityChange = () => {
 const handleRollDice = async () => {
   try {
     rollingDice.value = true
+    clearPersistedQuestionState()
 
     const response = await api.post<RollDiceResponse>(`/api/games/${gameId}/roll-dice`)
     const data = response.data
@@ -1781,7 +2283,12 @@ const handleRollDice = async () => {
     propertyBoughtThisTurn.value = false
     questionAnsweredThisTurn.value = false
 
-    toast.success('Dice rolled successfully.')
+    if (data.tax_effect) {
+      taxResult.value = data.tax_effect
+      taxResultModalOpen.value = true
+    } else {
+      toast.success('Dice rolled successfully.')
+    }
 
   } catch (error: unknown) {
     showError(error, 'Failed to roll dice.')
@@ -1973,6 +2480,11 @@ const closeCardResultModal = () => {
   cardQrInputValue.value = ''
 }
 
+const closeTaxResultModal = () => {
+  taxResultModalOpen.value = false
+  taxResult.value = null
+}
+
 const closeCodeLab = () => {
   difficultyModalOpen.value = false
   activeTile.value = null
@@ -1985,6 +2497,7 @@ const closeCodeLab = () => {
   qrInputValue.value = ''
   activeSidebarTab.value = 'board'
   questionHint.value = ''
+  clearPersistedQuestionState()
 }
 
 const handleBuyProperty = async () => {
@@ -2028,11 +2541,14 @@ const handlePayRent = async () => {
 
     rentPaidThisTurn.value = true
 
-    toast.success('Rent paid successfully.')
-
-    refreshBoardDataInBackground()
+    await Promise.all([fetchProperties(), fetchLeaderboard(), fetchMyProperties()])
   } catch (error: unknown) {
-    showError(error, 'Failed to pay rent.')
+    if (axios.isAxiosError(error) && error.response?.status === 409) {
+      toast.warning(getErrorMessage(error, 'Pending rent must be resolved first.'))
+      await Promise.all([fetchCurrentTurn(), fetchLeaderboard(), fetchMyProperties()])
+    } else {
+      showError(error, 'Failed to pay rent.')
+    }
   } finally {
     payingRent.value = false
   }
@@ -2106,6 +2622,120 @@ const handleEndGame = async () => {
   }
 }
 
+const isSellingProperty = (propertyId: number) => {
+  return sellingPropertyIds.value.includes(propertyId)
+}
+
+const openConfirmDialog = (options: {
+  title: string
+  message: string
+  confirmLabel: string
+  cancelLabel?: string
+  confirmClass?: string
+}) => {
+  if (confirmDialogResolver) {
+    confirmDialogResolver(false)
+  }
+
+  confirmDialog.value = {
+    open: true,
+    title: options.title,
+    message: options.message,
+    confirmLabel: options.confirmLabel,
+    cancelLabel: options.cancelLabel ?? 'Cancel',
+    confirmClass: options.confirmClass ?? 'bg-slate-900 hover:bg-slate-800',
+  }
+
+  return new Promise<boolean>((resolve) => {
+    confirmDialogResolver = resolve
+  })
+}
+
+const resolveConfirmDialog = (confirmed: boolean) => {
+  const resolver = confirmDialogResolver
+  confirmDialog.value.open = false
+  confirmDialogResolver = null
+
+  if (resolver) {
+    resolver(confirmed)
+  }
+}
+
+const showRentAlert = (title: string, message: string) => {
+  rentAlert.value = {
+    open: true,
+    title,
+    message,
+  }
+}
+
+const closeRentAlert = () => {
+  rentAlert.value.open = false
+}
+
+const handleSellAsset = async (property: MyProperty, assetType: 'house' | 'hotel' | 'property') => {
+  const resaleValue =
+    assetType === 'house'
+      ? property.house_resale_value
+      : assetType === 'hotel'
+        ? property.hotel_resale_value
+        : property.property_resale_value
+
+  const confirmed = await openConfirmDialog({
+    title: `Sell ${assetType === 'property' ? 'Property' : assetType === 'hotel' ? 'Hotel' : 'House'}`,
+    message: `Sell ${assetType === 'property' ? 'the property' : `one ${assetType}`} from ${property.property_name} for ${resaleValue} credits?`,
+    confirmLabel: 'Confirm Sale',
+  })
+
+  if (!confirmed) return
+
+  try {
+    sellingPropertyIds.value = [...sellingPropertyIds.value, property.property_id]
+
+    const routeSuffix =
+      assetType === 'house'
+        ? 'sell-house'
+        : assetType === 'hotel'
+          ? 'sell-hotel'
+          : 'sell'
+
+    await api.post<SellAssetResponse>(`/api/games/${gameId}/properties/${property.property_id}/${routeSuffix}`)
+    toast.success(`${property.property_name} updated successfully.`)
+    await Promise.all([fetchProperties(), fetchLeaderboard(), fetchMyProperties(), fetchCurrentTurn()])
+  } catch (error: unknown) {
+    showError(error, `Failed to sell ${assetType}.`)
+  } finally {
+    sellingPropertyIds.value = sellingPropertyIds.value.filter((id) => id !== property.property_id)
+  }
+}
+
+const handleDeclareBankruptcy = async () => {
+  const confirmed = await openConfirmDialog({
+    title: 'Declare Bankruptcy',
+    message: 'Declare bankruptcy and release all owned properties? This action will affect your current game state.',
+    confirmLabel: 'Declare Bankruptcy',
+    confirmClass: 'bg-red-600 hover:bg-red-500',
+  })
+
+  if (!confirmed) return
+
+  try {
+    declaringBankruptcy.value = true
+    const response = await api.post<EndTurnResponse>(`/api/games/${gameId}/declare-bankruptcy`)
+    if (response.data.status === 'ended' || gameStatus.value === 'ended') {
+      router.push(`/games/${gameId}/final-leaderboard`)
+      return
+    }
+
+    toast.success('Bankruptcy declared.')
+    await Promise.all([fetchCurrentTurn(), fetchLeaderboard(), fetchProperties(), fetchMyProperties()])
+  } catch (error: unknown) {
+    showError(error, 'Failed to declare bankruptcy.')
+  } finally {
+    declaringBankruptcy.value = false
+  }
+}
+
 const handleEndTurn = async () => {
   try {
     endingTurn.value = true
@@ -2160,11 +2790,13 @@ onMounted(async () => {
       return
     }
 
+    restorePersistedQuestionState()
+
     boardRefreshTimer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
 
       refreshGameStateInBackground()
-    }, 1000)
+    }, 2000)
 
     document.addEventListener('visibilitychange', handleBoardVisibilityChange)
     window.addEventListener('focus', refreshGameStateInBackground)
@@ -2172,6 +2804,7 @@ onMounted(async () => {
     gameChannel = echo.private(`game.${gameId}`)
 
     gameChannel.listen('.turn.changed', (event: TurnChangedEvent) => {
+      clearPersistedQuestionState()
       rentPaidThisTurn.value = false
       turnNumber.value = event.turn_number
       currentTurnUserId.value = event.current_turn_user_id
@@ -2236,6 +2869,7 @@ onMounted(async () => {
 
     gameChannel.listen('.leaderboard.updated', async (event: LeaderboardUpdatedEvent) => {
       applyLeaderboard(event.leaderboard)
+      refreshPropertyDataInBackground()
 
       const currentPlayer = event.leaderboard.find(
         (player) => player.user_id === authStore.user?.id
@@ -2264,12 +2898,78 @@ onMounted(async () => {
       }
     })
 
+    gameChannel.listen('.rent.paid', (event: RentPaidEvent) => {
+      try {
+        const rentAlertKey = [
+          event.game_id ?? gameId,
+          event.tenant_user_id,
+          event.owner_user_id,
+          event.property_name,
+          event.rent_amount,
+          event.tenant_credits,
+          event.owner_credits,
+        ].join(':')
+
+        if (lastRentAlertKey === rentAlertKey) {
+          return
+        }
+
+        lastRentAlertKey = rentAlertKey
+
+        if (Number(event.tenant_user_id) === Number(authStore.user?.id)) {
+          showRentAlert(
+            'Rent Paid',
+            `${event.rent_amount} Cr has been paid to ${event.owner_user_name} for ${event.property_name}.\n\nRemaining Credits: ${event.tenant_credits}`
+          )
+        } else if (Number(event.owner_user_id) === Number(authStore.user?.id)) {
+          showRentAlert(
+            'Rent Received',
+            `${event.tenant_user_name} paid you ${event.rent_amount} Cr for ${event.property_name}.\n\nCurrent Credits: ${event.owner_credits}`
+          )
+        }
+      } catch (error) {
+        console.error('Failed to handle web rent.paid event:', error)
+      }
+    })
+
     gameChannel.listen('.game.ended', (event: GameEndedEvent) => {
       gameStatus.value = event.status
       router.push(`/games/${gameId}/final-leaderboard`)
     })
   } catch (error: unknown) {
     showError(error, 'Failed to load game board data.')
+  }
+})
+
+watch(
+  [
+    activeTile,
+    activeQuestion,
+    selectedDifficulty,
+    selectedAnswer,
+    structuredAnswer,
+    questionHint,
+    answerResult,
+    activeSidebarTab,
+  ],
+  () => {
+    persistQuestionState()
+  },
+  { deep: true }
+)
+
+watch(
+  [currentTurnUserId, turnNumber, currentPosition],
+  () => {
+    if (activeSidebarTab.value === 'codeLab' && activeQuestion.value) {
+      persistQuestionState()
+    }
+  }
+)
+
+watch(hasAnsweredQuestionThisTurn, (answered) => {
+  if (answered) {
+    clearPersistedQuestionState()
   }
 })
 
@@ -2292,5 +2992,36 @@ onUnmounted(() => {
 <style scoped>
 .dice-shadow {
   box-shadow: 0 12px 40px rgba(42, 51, 60, 0.06);
+}
+
+.sidebar-board-actions {
+  display: none;
+}
+
+@media (max-width: 1020px) {
+  .sidebar-board-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .game-sidebar {
+    top: 5.5rem;
+    height: calc(100vh - 5.5rem);
+    padding-top: 1rem;
+  }
+
+  .game-main {
+    padding-top: 7rem;
+  }
+
+  .board-action-row {
+    display: none;
+  }
+
+  .syntax-state-panel {
+    order: 3;
+  }
 }
 </style>

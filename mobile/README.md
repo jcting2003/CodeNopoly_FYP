@@ -1,50 +1,149 @@
-# Welcome to your Expo app 👋
+# CodeNopoly Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Overview
 
-## Get started
+This folder contains the React Native / Expo mobile client for CodeNopoly. It supports authentication, gameplay access, QR scanning, Android NFC-assisted verification, and Pusher-powered realtime updates.
 
-1. Install dependencies
+## Stack
 
-   ```bash
-   npm install
-   ```
+- Expo SDK `54`
+- React `19.1.0`
+- React Native `0.81.5`
+- Expo Router
+- Expo Camera
+- Expo Secure Store
+- Laravel Echo
+- Pusher JS
+- `react-native-nfc-manager`
 
-2. Start the app
+## Node.js Requirement
 
-   ```bash
-   npx expo start
-   ```
+Use Node 20+ for best compatibility with the current Expo toolchain.
 
-In the output, you'll find options to open the app in a
+## Environment Variables
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Do not replace the current working mobile `.env` unless you intentionally need a new setup.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Safe template:
 
-## Get a fresh project
+- `mobile/.env.example`
 
-When you're ready, run:
+Variables detected in the code:
 
-```bash
-npm run reset-project
+- `EXPO_PUBLIC_API_URL`
+- `EXPO_PUBLIC_PUSHER_APP_KEY`
+- `EXPO_PUBLIC_PUSHER_APP_CLUSTER`
+
+## Install Dependencies
+
+From `mobile`:
+
+```powershell
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Start With Expo Go
 
-## Learn more
+From `mobile`:
 
-To learn more about developing your project with Expo, look at the following resources:
+```powershell
+npx expo start
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Optional shortcuts:
 
-## Join the community
+```powershell
+npm run start
+npm run android
+npm run ios
+npm run web
+```
 
-Join our community of developers creating universal apps.
+## API URL Notes
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The mobile app reads `EXPO_PUBLIC_API_URL` and strips any trailing `/api`.
+
+Fallback behavior in code:
+
+- Web mode fallback: `http://localhost:8000`
+- Native fallback: `http://10.0.2.2:8000`
+
+For real device testing:
+
+- keep the current working ngrok URL if one is already configured privately
+- or point `EXPO_PUBLIC_API_URL` to a reachable backend URL on your LAN or active ngrok tunnel
+
+## QR and NFC Requirements
+
+- QR scanning uses `expo-camera`
+- Android permission declared in `app.json`:
+  - `android.permission.NFC`
+- iOS info plist includes:
+  - `NFCReaderUsageDescription`
+
+Operational note:
+
+- NFC use is explicitly surfaced as Android-first in the current UI/flow
+- iPhone users should rely on QR scanning unless you separately verify NFC behavior in your own environment
+
+## Expo / App Configuration
+
+Important files:
+
+- `app.json`
+- `eas.json`
+
+Current app config notes:
+
+- `newArchEnabled` is `true`
+- Expo plugin list includes `expo-router`, `expo-secure-store`, and `react-native-nfc-manager`
+- EAS profiles for development, preview, and production are present
+
+## Linting and Validation
+
+Run:
+
+```powershell
+npm run lint
+npx tsc --noEmit
+npx expo-doctor
+```
+
+Current validation results in this workspace:
+
+- `npm run lint`: passed with warnings
+- `npx tsc --noEmit`: passed
+- `npx expo-doctor`: completed with warnings/failures about Expo package version drift and `react-native-nfc-manager` new-architecture support
+
+Current lint warnings include:
+
+- missing React Hook dependencies in some screens
+- one unused local variable warning
+- one `Array<T>` style warning in `PropertyCard.tsx`
+
+## EAS Build Note
+
+EAS configuration exists, but the submission-preparation pass did not convert the app to a different build type and did not modify EAS settings.
+
+Use EAS only if your lecturer specifically needs a compiled build or APK path already prepared outside this repo.
+
+## Clearing Expo Cache
+
+If Metro behaves unexpectedly:
+
+```powershell
+npx expo start --clear
+```
+
+## Common Metro / Device Issues
+
+- Device cannot reach API:
+  - verify `EXPO_PUBLIC_API_URL`
+- Realtime events missing:
+  - verify Pusher env values
+- QR scan permission denied:
+  - allow camera access on device
+- NFC option unavailable:
+  - test on Android hardware with NFC enabled
+- Expo doctor dependency mismatch warnings:
+  - documented as a known limitation in the readiness report; no upgrades were applied during submission prep

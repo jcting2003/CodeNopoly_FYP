@@ -19,7 +19,6 @@
     "pinia": "^3.0.4",
     "pusher-js": "^8.5.0",
     "qrcode.vue": "^3.9.0",
-    "three": "^0.185.1",
     "vue": "^3.5.31",
     "vue-router": "^5.0.4",
     "vue-toastification": "^2.0.0-rc.5"
@@ -28,7 +27,6 @@
     "@tailwindcss/vite": "^4.2.4",
     "@tsconfig/node24": "^24.0.4",
     "@types/node": "^24.12.0",
-    "@types/three": "^0.185.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/eslint-config-typescript": "^14.7.0",
     "@vue/tsconfig": "^0.9.1",

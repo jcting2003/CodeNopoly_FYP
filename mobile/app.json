@@ -11,8 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NFCReaderUsageDescription": "This app uses NFC to scan Codenopoly board tiles and cards."
-      }
+        "NFCReaderUsageDescription": "This app uses NFC to scan Codenopoly board tiles and cards.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.jcting2003.codenopoly"
     },
     "android": {
       "adaptiveIcon": {

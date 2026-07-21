@@ -24,11 +24,18 @@ class GamePlayer extends Model
         'skip_turns',
         'last_question_answered_turn',
         'last_card_scanned_turn',
+        'is_bankrupt',
+        'bankrupt_at',
+        'pending_rent_amount',
+        'pending_rent_property_id',
+        'pending_rent_owner_id',
     ];
 
     public function casts(): array{
         return[
             'joined_at' => 'datetime',
+            'bankrupt_at' => 'datetime',
+            'is_bankrupt' => 'boolean',
         ];
     }
 

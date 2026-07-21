@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -9,6 +8,7 @@ import {
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import api from '../../src/services/api'
+import { popup } from '../../src/services/popup'
 
 type LeaderboardPlayer = {
   rank: number
@@ -49,7 +49,7 @@ export default function FinalLeaderboardScreen() {
 
   const fetchFinalLeaderboard = async () => {
     if (!gameId || Number.isNaN(gameId)) {
-      Alert.alert('Invalid Game', 'Game ID is invalid.')
+      popup.alert('Invalid Game', 'Game ID is invalid.')
       router.replace('/dashboard')
       return
     }
@@ -68,7 +68,7 @@ export default function FinalLeaderboardScreen() {
       const message =
         error.response?.data?.message || 'Failed to load final leaderboard.'
 
-      Alert.alert('Leaderboard Error', message)
+      popup.alert('Leaderboard Error', message)
       router.replace('/dashboard')
     } finally {
       setLoading(false)
@@ -121,7 +121,7 @@ export default function FinalLeaderboardScreen() {
           </Text>
 
           <Text className="mt-4 text-center text-base font-semibold leading-6 text-on-surface-variant">
-            Final ranking and results for this Pythonopoly session.
+            Final ranking and results for this Codenopoly session.
           </Text>
         </View>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,6 +11,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { router, useLocalSearchParams } from 'expo-router'
 import api from '../../src/services/api'
+import { popup } from '../../src/services/popup'
 
 type TileData = {
   id?: number
@@ -90,6 +91,7 @@ export default function TileScannerScreen() {
 
   const [scanning, setScanning] = useState(false)
   const [hasScanned, setHasScanned] = useState(false)
+  const [nfcModalVisible, setNfcModalVisible] = useState(false)
   const [qrMode, setQrMode] = useState(false)
   const [permission, requestPermission] = useCameraPermissions()
 
@@ -159,15 +161,16 @@ export default function TileScannerScreen() {
         const result = scanResponse.data.result
 
         if (!card) {
-          Alert.alert('Card Not Found', 'No card was returned for this code.')
+          popup.alert('Card Not Found', 'No card was returned for this code.')
           scanLockRef.current = false
           setHasScanned(false)
           return
         }
 
         setQrMode(false)
+        setNfcModalVisible(false)
 
-        Alert.alert(
+        popup.alert(
           card.title || 'Card Scanned',
           `${card.description || ''}\n\n${result?.message || ''}\nCurrent Credits: ${
             result?.current_credits ?? '-'
@@ -208,7 +211,7 @@ export default function TileScannerScreen() {
         scanResponse.data.name
 
       if (!tileId) {
-        Alert.alert('Tile Not Found', 'No tile was returned for this code.')
+        popup.alert('Tile Not Found', 'No tile was returned for this code.')
         scanLockRef.current = false
         setHasScanned(false)
         return
@@ -227,7 +230,7 @@ export default function TileScannerScreen() {
         )
 
       if (availableDifficulties.length === 0) {
-        Alert.alert(
+        popup.alert(
           'No Questions Available',
           'This tile does not have any available questions yet.'
         )
@@ -244,9 +247,10 @@ export default function TileScannerScreen() {
       })
 
         setQrMode(false)
+        setNfcModalVisible(false)
         } catch (error: any) {
           if (error.response?.status === 429) {
-            Alert.alert(
+            popup.alert(
               'Too Many Requests',
               'Please wait around 1 minute before trying again.'
             )
@@ -254,7 +258,7 @@ export default function TileScannerScreen() {
             const message =
               error.response?.data?.message || 'Failed to check this code.'
 
-            Alert.alert('Scan Failed', message)
+            popup.alert('Scan Failed', message)
           }
 
           scanLockRef.current = false
@@ -267,7 +271,7 @@ export default function TileScannerScreen() {
   const loadQuestionByDifficulty = async (difficulty: Difficulty) => {
     if (!pendingTile || scanning || questionLockRef.current) return
     if (!pendingTile.available_difficulties.includes(difficulty)) {
-      Alert.alert(
+      popup.alert(
         'Difficulty Not Available',
         'This difficulty is not available for the selected tile.'
       )
@@ -300,7 +304,7 @@ export default function TileScannerScreen() {
       const question = questionResponse.data.question
 
       if (!question?.id) {
-        Alert.alert('No Question', 'No question was returned for this difficulty.')
+        popup.alert('No Question', 'No question was returned for this difficulty.')
         questionLockRef.current = false
         scanLockRef.current = false
         setHasScanned(false)
@@ -326,7 +330,7 @@ export default function TileScannerScreen() {
       })
     } catch (error: any) {
       if (error.response?.status === 429) {
-        Alert.alert(
+        popup.alert(
           'Too Many Requests',
           'Please wait around 1 minute before trying again.'
         )
@@ -334,7 +338,7 @@ export default function TileScannerScreen() {
         const message =
           error.response?.data?.message || 'Failed to load question.'
 
-        Alert.alert('Question Failed', message)
+        popup.alert('Question Failed', message)
       }
 
       questionLockRef.current = false
@@ -348,7 +352,7 @@ export default function TileScannerScreen() {
 
   const readNfcTag = async () => {
   if (!isAndroid) {
-    Alert.alert(
+    popup.alert(
       'NFC Not Available',
       'NFC scanning is only available on Android in this build. Please use QR scanning on iPhone.'
     )
@@ -367,14 +371,14 @@ export default function TileScannerScreen() {
     const supported = await NfcManager.isSupported()
 
     if (!supported) {
-      Alert.alert('NFC Not Supported', 'This Android phone does not support NFC.')
+      popup.alert('NFC Not Supported', 'This Android phone does not support NFC.')
       return
     }
 
     const enabled = await NfcManager.isEnabled()
 
     if (!enabled) {
-      Alert.alert('NFC Disabled', 'Please turn on NFC in your Android settings.')
+      popup.alert('NFC Disabled', 'Please turn on NFC in your Android settings.')
       return
     }
 
@@ -388,7 +392,7 @@ export default function TileScannerScreen() {
     const record = tag?.ndefMessage?.[0]
 
     if (!record?.payload) {
-      Alert.alert('No NFC Data', 'This NFC tag does not contain a text record.')
+      popup.alert('No NFC Data', 'This NFC tag does not contain a text record.')
       return
     }
 
@@ -397,7 +401,7 @@ export default function TileScannerScreen() {
     const value = Ndef.text.decodePayload(payload).trim().toUpperCase()
 
     if (!value) {
-      Alert.alert('Empty NFC Tag', 'No tile or card code was found.')
+      popup.alert('Empty NFC Tag', 'No tile or card code was found.')
       return
     }
 
@@ -406,7 +410,7 @@ export default function TileScannerScreen() {
   } catch (error: any) {
     console.log('NFC READ ERROR:', error)
 
-    Alert.alert(
+    popup.alert(
       'NFC Scan Failed',
       error?.message || 'Unable to read NFC tag.'
     )
@@ -426,7 +430,7 @@ export default function TileScannerScreen() {
       const result = await requestPermission()
 
       if (!result.granted) {
-        Alert.alert(
+        popup.alert(
           'Camera Permission Required',
           'Please allow camera access to scan QR codes.'
         )
@@ -445,7 +449,7 @@ export default function TileScannerScreen() {
     const value = data.trim().toUpperCase()
 
     if (!value) {
-      Alert.alert('Invalid QR Code', 'The QR code does not contain a valid value.')
+      popup.alert('Invalid QR Code', 'The QR code does not contain a valid value.')
       return
     }
 
@@ -479,6 +483,26 @@ return (
       </Text>
     </View>
 
+    <View className="mb-6 rounded-[2rem] bg-primary-container p-5">
+      <Text className="text-xs font-black uppercase tracking-[3px] text-on-primary-container">
+        When To Scan
+      </Text>
+
+      <Text className="mt-3 text-base font-black leading-7 text-on-primary-container">
+        Scan only after you roll the dice and move to your current board tile.
+      </Text>
+
+      <Text className="mt-3 text-sm leading-6 text-on-primary-container/80">
+        1. Roll dice on the game board.
+      </Text>
+      <Text className="text-sm leading-6 text-on-primary-container/80">
+        2. Find the tile you landed on.
+      </Text>
+      <Text className="text-sm leading-6 text-on-primary-container/80">
+        3. Tap NFC or open the QR scanner to verify that tile.
+      </Text>
+    </View>
+
     {/* NFC Scan Mode */}
     {isAndroid && (
       <View className="mb-6 rounded-[2rem] bg-surface-container-lowest p-5">
@@ -486,15 +510,19 @@ return (
           NFC Scan Mode
         </Text>
 
+        <Text className="mb-4 text-sm leading-6 text-on-surface-variant">
+          Use this only when you are standing on the real board tile and ready to verify it.
+        </Text>
+
         <Pressable
-          onPress={readNfcTag}
+          onPress={() => setNfcModalVisible(true)}
           disabled={scanning || hasScanned || !!pendingTile}
           className={`h-14 items-center justify-center rounded-full bg-tertiary ${
             scanning || hasScanned || pendingTile ? 'opacity-60' : ''
           }`}
         >
           <Text className="font-black text-white">
-            Tap NFC Tag
+            Verify Tile With NFC
           </Text>
         </Pressable>
 
@@ -510,55 +538,36 @@ return (
         QR Scan Mode
       </Text>
 
-      {!qrMode ? (
-        <Pressable
-          onPress={startQrScanner}
-          disabled={scanning || hasScanned || !!pendingTile}
-          className={`h-14 items-center justify-center rounded-full bg-primary ${
-            scanning || hasScanned || pendingTile ? 'opacity-60' : ''
-          }`}
-        >
-          <Text className="font-black text-white">
-            Scan QR Code
-          </Text>
-        </Pressable>
-      ) : (
-        <View>
-          <View className="h-[420px] overflow-hidden rounded-3xl bg-black">
-            <CameraView
-              style={{ flex: 1 }}
-              barcodeScannerSettings={{
-                barcodeTypes: ['qr'],
-              }}
-              onBarcodeScanned={
-                scanning || hasScanned || pendingTile
-                  ? undefined
-                  : handleQrScanned
-              }
-            />
-          </View>
+      <Text className="mb-4 text-sm leading-6 text-on-surface-variant">
+        Use this when the tile has a QR code and you are ready to scan the tile you landed on.
+      </Text>
 
-          <Pressable
-            onPress={() => setQrMode(false)}
-            className="mt-4 h-12 items-center justify-center rounded-full bg-surface-container-high"
-          >
-            <Text className="font-black text-on-surface">
-              Cancel QR Scan
-            </Text>
-          </Pressable>
-        </View>
-      )}
+      <Pressable
+        onPress={startQrScanner}
+        disabled={scanning || hasScanned || !!pendingTile}
+        className={`h-14 items-center justify-center rounded-full bg-primary ${
+          scanning || hasScanned || pendingTile ? 'opacity-60' : ''
+        }`}
+      >
+        <Text className="font-black text-white">
+          Open QR Scanner
+        </Text>
+      </Pressable>
     </View>
 
     {/* Difficulty Selection */}
     {pendingTile && (
       <View className="mb-6 rounded-[2rem] bg-surface-container-lowest p-5">
         <Text className="mb-2 text-xs font-black uppercase tracking-widest text-on-surface-variant">
-          Choose Difficulty
+          Tile Verified
         </Text>
 
         <Text className="mb-5 text-xl font-black text-on-surface">
           {pendingTile.tile_name || pendingTile.name || 'Selected Tile'}
+        </Text>
+
+        <Text className="mb-5 text-sm leading-6 text-on-surface-variant">
+          Your tile has been confirmed. Choose a difficulty to continue to the question.
         </Text>
 
         <View className="gap-3">
@@ -621,8 +630,8 @@ return (
       ) : (
         <Text className="text-center text-sm font-bold text-on-surface-variant">
           {isAndroid
-            ? 'NFC tag or QR code should contain values like NFC_TILE_19, CC_007, or CH_001.'
-            : 'QR code should contain values like NFC_TILE_19, CC_007, or CH_001.'}
+            ? 'Need a reminder? Roll first, then scan the exact tile you landed on. Valid codes can look like NFC_TILE_19, CC_007, or CH_001.'
+            : 'Roll first, then scan the exact tile you landed on. Valid QR codes can look like NFC_TILE_19, CC_007, or CH_001.'}
         </Text>
       )}
     </View>
@@ -636,6 +645,165 @@ return (
         Cancel
       </Text>
     </Pressable>
+
+    <Modal
+      visible={nfcModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        if (!scanning) {
+          setNfcModalVisible(false)
+        }
+      }}
+    >
+      <View className="flex-1 items-center justify-center bg-black/55 px-6">
+        <View className="w-full max-w-sm rounded-[2rem] bg-surface-container-lowest p-6">
+          <Text className="text-xs font-black uppercase tracking-[3px] text-tertiary">
+            NFC Ready
+          </Text>
+
+          <Text className="mt-3 text-3xl font-black tracking-tight text-on-surface">
+            Verify your current tile
+          </Text>
+
+          <Text className="mt-3 text-sm leading-6 text-on-surface-variant">
+            Hold your phone close to the NFC tag on the tile you landed on, then keep it still until the scan completes.
+          </Text>
+
+          <View className="mt-6 rounded-[2rem] bg-tertiary-container px-6 py-8">
+            <View className="items-center justify-center">
+              <View className="absolute h-40 w-40 rounded-full bg-white/25" />
+              <View className="absolute h-28 w-28 rounded-full border border-white/40" />
+
+              <View className="w-28 rounded-[1.75rem] bg-slate-950 px-2 py-3 shadow-lg">
+                <View className="mb-3 h-1.5 w-10 self-center rounded-full bg-slate-700" />
+                <View className="h-40 rounded-[1.25rem] bg-white items-center justify-center">
+                  <Text className="text-5xl">📶</Text>
+                </View>
+              </View>
+
+              <View className="mt-5 h-14 w-24 items-center justify-center rounded-2xl border-2 border-dashed border-on-tertiary-container/45 bg-white/45">
+                <Text className="text-2xl">🏷️</Text>
+              </View>
+
+              <Text className="mt-4 text-center text-xs font-black uppercase tracking-[3px] text-on-tertiary-container/70">
+                Phone to tag
+              </Text>
+            </View>
+
+            <Text className="mt-5 text-center text-lg font-black text-on-tertiary-container">
+              Tap Now
+            </Text>
+            <Text className="mt-2 text-center text-sm font-bold text-on-tertiary-container/75">
+              Bring the top of your phone close to the NFC sticker
+            </Text>
+          </View>
+
+          <View className="mt-6 gap-3">
+            <Pressable
+              onPress={readNfcTag}
+              disabled={scanning}
+              className={`h-14 items-center justify-center rounded-full bg-tertiary ${
+                scanning ? 'opacity-60' : ''
+              }`}
+            >
+              {scanning ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="font-black text-white">
+                  Scan This Tile
+                </Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => setNfcModalVisible(false)}
+              disabled={scanning}
+              className={`h-12 items-center justify-center rounded-full bg-surface-container-high ${
+                scanning ? 'opacity-60' : ''
+              }`}
+            >
+              <Text className="font-black text-on-surface">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
+    <Modal
+      visible={qrMode}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setQrMode(false)}
+    >
+      <View className="flex-1 bg-black/70 px-4 py-8">
+        <View className="flex-1 overflow-hidden rounded-[2rem] bg-surface-container-lowest">
+          <View className="flex-row items-center justify-between px-5 py-4">
+            <View>
+              <Text className="text-xs font-black uppercase tracking-[3px] text-primary">
+                QR Scanner
+              </Text>
+              <Text className="mt-1 text-2xl font-black text-on-surface">
+                Verify your current tile
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={() => setQrMode(false)}
+              className="h-10 w-10 items-center justify-center rounded-full bg-surface-container-high"
+            >
+              <Text className="text-xl font-black text-on-surface">X</Text>
+            </Pressable>
+          </View>
+
+          <View className="mx-5 mb-5 flex-1 overflow-hidden rounded-[2rem] bg-black">
+            <CameraView
+              style={{ flex: 1 }}
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr'],
+              }}
+              onBarcodeScanned={
+                scanning || hasScanned || pendingTile
+                  ? undefined
+                  : handleQrScanned
+              }
+            />
+
+            <View className="absolute inset-x-0 top-6 items-center">
+              <Text className="rounded-full bg-black/55 px-4 py-2 text-xs font-black uppercase tracking-[3px] text-white">
+                Align the tile QR inside the frame
+              </Text>
+            </View>
+
+            <View className="absolute inset-0 items-center justify-center">
+              <View className="h-64 w-64 rounded-[2rem] border-2 border-white/90 bg-transparent" />
+            </View>
+
+            {scanning && (
+              <View className="absolute inset-0 items-center justify-center bg-black/40">
+                <ActivityIndicator color="#FFFFFF" size="large" />
+                <Text className="mt-3 font-black text-white">
+                  Checking code...
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View className="px-5 pb-5">
+            <Pressable
+              onPress={() => setQrMode(false)}
+              className="h-12 items-center justify-center rounded-full bg-surface-container-high"
+            >
+              <Text className="font-black text-on-surface">
+                Cancel QR Scan
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   </ScrollView>
 )
 }

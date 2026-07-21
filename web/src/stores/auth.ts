@@ -24,6 +24,22 @@ type RegisterPayload = {
   password_confirmation: string
 }
 
+type ForgotPasswordPayload = {
+  email: string
+}
+
+type ForgotPasswordResponse = {
+  message: string
+  reset_url?: string
+}
+
+type ResetPasswordPayload = {
+  token: string
+  email: string
+  password: string
+  password_confirmation: string
+}
+
 type ApiErrorResponse = {
   message?: string
   error?: string
@@ -126,6 +142,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function forgotPassword(payload: ForgotPasswordPayload) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await api.post<ForgotPasswordResponse>('/api/forgot-password', payload)
+      return response.data
+    } catch (err: unknown) {
+      console.log('Forgot password backend error:', axios.isAxiosError(err) ? err.response?.data : err)
+      error.value = getErrorMessage(err, 'Unable to send reset email.')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function resetPassword(payload: ResetPasswordPayload) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await api.post<{ message: string }>('/api/reset-password', payload)
+      return response.data
+    } catch (err: unknown) {
+      console.log('Reset password backend error:', axios.isAxiosError(err) ? err.response?.data : err)
+      error.value = getErrorMessage(err, 'Unable to reset password.')
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function logout() {
     try {
       await api.post('/api/logout')
@@ -150,6 +198,8 @@ export const useAuthStore = defineStore('auth', () => {
     refreshUser,
     login,
     register,
+    forgotPassword,
+    resetPassword,
     logout,
     clearError,
   }

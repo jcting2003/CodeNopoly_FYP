@@ -1,24 +1,26 @@
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   Text,
   TextInput,
+  Linking,
   useWindowDimensions,
   View,
 } from 'react-native'
 import { router, useRootNavigationState } from 'expo-router'
 import { useAuth } from '../src/context/AuthContext'
+import { popup } from '../src/services/popup'
 
 type AuthTab = 'login' | 'register'
 
 export default function LoginScreen() {
-  const { user, loading, login, register } = useAuth()
+  const { user, loading, login, register, forgotPassword } = useAuth()
   const rootNavigationState = useRootNavigationState()
   const { width } = useWindowDimensions()
 
@@ -34,6 +36,10 @@ export default function LoginScreen() {
   const [registerPassword, setRegisterPassword] = useState('')
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [forgotPasswordVisible, setForgotPasswordVisible] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+  const [forgotPasswordSubmitting, setForgotPasswordSubmitting] = useState(false)
+  const [forgotPasswordLink, setForgotPasswordLink] = useState('')
 
   useEffect(() => {
     if (!loading && user && rootNavigationState?.key) {
@@ -50,7 +56,7 @@ export default function LoginScreen() {
     setSuccessMessage('')
 
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Details', 'Please enter your email and password.')
+      popup.alert('Missing Details', 'Please enter your email and password.')
       return
     }
 
@@ -61,7 +67,7 @@ export default function LoginScreen() {
       const message =
         error.response?.data?.message || 'Failed to login. Please try again.'
 
-      Alert.alert('Login Failed', message)
+      popup.alert('Login Failed', message)
     } finally {
       setSubmitting(false)
     }
@@ -76,17 +82,17 @@ export default function LoginScreen() {
       !registerPassword.trim() ||
       !registerConfirmPassword.trim()
     ) {
-      Alert.alert('Missing Details', 'Please complete all registration fields.')
+      popup.alert('Missing Details', 'Please complete all registration fields.')
       return
     }
 
     if (registerPassword !== registerConfirmPassword) {
-      Alert.alert('Password Error', 'Passwords do not match.')
+      popup.alert('Password Error', 'Passwords do not match.')
       return
     }
 
     if (registerPassword.length < 8) {
-      Alert.alert('Password Error', 'Password must be at least 8 characters.')
+      popup.alert('Password Error', 'Password must be at least 8 characters.')
       return
     }
 
@@ -116,9 +122,49 @@ export default function LoginScreen() {
         error.response?.data?.errors?.name?.[0] ||
         'Failed to register. Please try again.'
 
-      Alert.alert('Register Failed', message)
+      popup.alert('Register Failed', message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const openForgotPasswordModal = () => {
+    setSuccessMessage('')
+    setForgotPasswordEmail(email.trim())
+    setForgotPasswordLink('')
+    setForgotPasswordVisible(true)
+  }
+
+  const closeForgotPasswordModal = () => {
+    if (forgotPasswordSubmitting) {
+      return
+    }
+
+    setForgotPasswordVisible(false)
+  }
+
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail.trim()) {
+      popup.alert('Missing Email', 'Please enter the email address for your account.')
+      return
+    }
+
+    try {
+      setForgotPasswordSubmitting(true)
+      const response = await forgotPassword(forgotPasswordEmail.trim())
+      setSuccessMessage(response.message)
+      setForgotPasswordLink(response.reset_url || '')
+
+      if (!response.reset_url) {
+        setForgotPasswordVisible(false)
+      }
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message || 'Unable to send a password reset link right now.'
+
+      popup.alert('Reset Link Failed', message)
+    } finally {
+      setForgotPasswordSubmitting(false)
     }
   }
 
@@ -256,7 +302,7 @@ export default function LoginScreen() {
                     <TextInput
                       value={email}
                       onChangeText={setEmail}
-                      placeholder="dev@pythonopoly.io"
+                      placeholder="dev@codenopoly.io"
                       placeholderTextColor="#727C86"
                       keyboardType="email-address"
                       autoCapitalize="none"
@@ -270,9 +316,11 @@ export default function LoginScreen() {
                         Access Secret
                       </Text>
 
-                      <Text className="text-xs font-bold text-[#1E6397]">
-                        Forgot Secret?
-                      </Text>
+                      <Pressable onPress={openForgotPasswordModal}>
+                        <Text className="text-xs font-bold text-[#1E6397]">
+                          Forgot Secret?
+                        </Text>
+                      </Pressable>
                     </View>
 
                     <TextInput
@@ -407,6 +455,92 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        transparent
+        visible={forgotPasswordVisible}
+        animationType="fade"
+        onRequestClose={closeForgotPasswordModal}
+      >
+        <View className="flex-1 items-center justify-center bg-black/55 px-6">
+          <View className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-lg">
+            <Text className="text-2xl font-black tracking-[-0.8px] text-[#2A333C]">
+              Reset Secret
+            </Text>
+
+            <Text className="mt-3 text-sm leading-6 text-[#56606A]">
+              Enter your account email and we&apos;ll send you a password reset link.
+            </Text>
+
+            <View className="mt-5 gap-2">
+              <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                Email Endpoint
+              </Text>
+
+              <TextInput
+                value={forgotPasswordEmail}
+                onChangeText={setForgotPasswordEmail}
+                placeholder="dev@codenopoly.io"
+                placeholderTextColor="#727C86"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
+              />
+            </View>
+
+            {forgotPasswordLink ? (
+              <View className="mt-4 rounded-2xl bg-[#EEF4FC] p-4">
+                <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                  Development Reset Link
+                </Text>
+
+                <Text selectable className="mt-2 text-sm leading-6 text-[#1E6397]">
+                  {forgotPasswordLink}
+                </Text>
+
+                <Pressable
+                  onPress={() => {
+                    void Linking.openURL(forgotPasswordLink)
+                  }}
+                  className="mt-4 h-12 items-center justify-center rounded-full bg-[#1F6FA8]"
+                >
+                  <Text className="text-sm font-black text-white">
+                    Open Reset Page
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View className="mt-6 flex-row gap-3">
+              <Pressable
+                onPress={closeForgotPasswordModal}
+                disabled={forgotPasswordSubmitting}
+                className="h-14 flex-1 items-center justify-center rounded-full bg-[#D9E4EF]"
+              >
+                <Text className="text-base font-black text-[#2A333C]">
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleForgotPassword}
+                disabled={forgotPasswordSubmitting}
+                className={`h-14 flex-1 items-center justify-center rounded-full bg-[#1F6FA8] ${
+                  forgotPasswordSubmitting ? 'opacity-85' : 'opacity-100'
+                }`}
+              >
+                {forgotPasswordSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text className="text-base font-black text-white">
+                    Send Link
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
