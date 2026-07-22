@@ -82,7 +82,7 @@ ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
 Official mobile testing path:
 
 - Use Android as the main test device.
-- Install the provided APK: [base 3.apk](</C:/Users/User/Documents/jenn/codenopoly/base 3.apk>)
+- Install the provided APK: [base.3.apk](https://github.com/jcting2003/CodeNopoly_FYP/releases/download/apk-v1/base.3.apk)
 - After installation, open the installed `mobile` app.
 - Do not open the `EAS` app for gameplay testing.
 
@@ -95,10 +95,10 @@ ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
 
 How the lecturer should install the APK:
 
-1. Receive the full project folder or submission archive that contains `base 3.apk`.
-2. Copy `base 3.apk` to an Android phone if it is not already on the device.
-3. On the Android phone, open the file manager and locate `base 3.apk`.
-4. Tap `base 3.apk` to begin installation.
+1. Open the APK download link: [base.3.apk](https://github.com/jcting2003/CodeNopoly_FYP/releases/download/apk-v1/base.3.apk)
+2. Download the APK onto the Android phone.
+3. On the Android phone, open the file manager or downloads list and locate `base.3.apk`.
+4. Tap `base.3.apk` to begin installation.
 5. If Android shows a security warning, allow installation from unknown sources for this install.
 6. Complete the installation.
 7. Open the installed `mobile` app.

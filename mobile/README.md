@@ -64,7 +64,7 @@ npm run web
 Primary mobile testing path:
 
 - Use an Android device as the main test device.
-- Install the provided APK: [base 3.apk](</C:/Users/User/Documents/jenn/codenopoly/base 3.apk>)
+- Install the provided APK: [base.3.apk](https://github.com/jcting2003/CodeNopoly_FYP/releases/download/apk-v1/base.3.apk)
 - Install and open the provided app build on the phone.
 - Open the installed `mobile` app for testing.
 - Do not open the `EAS` app for gameplay testing. The `EAS` app is part of Expo tooling, not the CodeNopoly game app itself.
@@ -96,10 +96,10 @@ Practical note:
 
 ## How To Install The Android APK
 
-1. Make sure the lecturer receives the full project folder or submission archive containing `base 3.apk`.
-2. Move or copy `base 3.apk` onto the Android phone if needed.
-3. On the Android phone, open the file manager and find `base 3.apk`.
-4. Tap `base 3.apk` to start installation.
+1. Open the APK download link: [base.3.apk](https://github.com/jcting2003/CodeNopoly_FYP/releases/download/apk-v1/base.3.apk)
+2. Download the APK onto the Android phone.
+3. On the Android phone, open the file manager or downloads list and find `base.3.apk`.
+4. Tap `base.3.apk` to start installation.
 5. If Android blocks the install, allow installation from unknown sources when prompted.
 6. Finish installing the app.
 7. Open the installed `mobile` app.
