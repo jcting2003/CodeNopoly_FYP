@@ -391,6 +391,13 @@ class QuestionController extends Controller
             $qwenService = app(QwenAnswerValidationService::class);
             $aiResult = $qwenService->validateAnswer($question, $studentAnswer);
 
+            if (($aiResult['status'] ?? 'ok') !== 'ok') {
+                return response()->json([
+                    'message' => 'Answer validation is temporarily unavailable',
+                    'feedback' => $aiResult['feedback'] ?? 'AI validation is currently unavailable.',
+                ], 503);
+            }
+
             $isCorrect = (bool) $aiResult['is_correct'];
 
             $earnedCredits = $isCorrect ? (int) $question->credits : 0;

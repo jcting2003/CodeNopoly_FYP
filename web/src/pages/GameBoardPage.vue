@@ -492,32 +492,32 @@
 
             <div class="w-full md:w-2/3 p-8 bg-surface-container-lowest">
               <div class="grid grid-cols-2 gap-8">
-                <div>
-                  <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold block mb-1">
-                    Execution Cost
-                  </span>
-                  <span class="text-2xl font-headline font-bold">
-                    {{ currentProperty ? `${currentProperty.cost} Cr` : executionCost }}
-                  </span>
-                </div>
+                <template v-if="!isCardTile">
+                  <div>
+                    <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold block mb-1">
+                      Execution Cost
+                    </span>
+                    <span class="text-2xl font-headline font-bold">
+                      {{ currentProperty ? `${currentProperty.cost} Cr` : executionCost }}
+                    </span>
+                  </div>
 
-                <div>
-                  <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold block mb-1">
-                    Runtime Yield
-                  </span>
-                  <span class="text-2xl font-headline font-bold text-tertiary">
-                    {{ currentProperty ? currentProperty.color_group : runtimeYield }}
-                  </span>
-                </div>
+                  <div>
+                    <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold block mb-1">
+                      Runtime Yield
+                    </span>
+                    <span class="text-2xl font-headline font-bold text-tertiary">
+                      {{ currentProperty ? currentProperty.color_group : runtimeYield }}
+                    </span>
+                  </div>
+                </template>
 
                 <div class="col-span-2">
                   <span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold block mb-2">
                     Description
                   </span>
                   <p class="text-sm text-on-surface-variant leading-relaxed">
-                    {{ currentProperty
-                      ? `${currentProperty.property_name} • Owner: ${currentProperty.owner_name || 'Unowned'} • Houses: ${currentProperty.houses} • Hotel: ${currentProperty.hotel ? 'Yes' : 'No'} • Rent Due: ${currentRentAmount} Cr`
-                      : tileDescription }}
+                    {{ tileDetailDescription }}
                   </p>
                 </div>
               </div>
@@ -1626,7 +1626,11 @@ const rollingDice = ref(false)
 
 let gameChannel: ReturnType<typeof echo.private> | null = null
 let boardRefreshTimer: number | null = null
+let propertyRefreshTimer: number | null = null
 let boardRefreshInFlight = false
+
+const GAME_STATE_REFRESH_INTERVAL_MS = 10000
+const GAMEPLAY_RATE_LIMIT_BACKOFF_MS = 15000
 
 const gameName = ref(`Game #${gameId}`)
 const currentTurnText = ref('Waiting...')
@@ -1709,6 +1713,7 @@ const structuredAnswer = ref('')
 const loadingHint = ref(false)
 const questionHint = ref('')
 const tileCache = ref<Record<number, TileByNumberResponse['tile']>>({})
+const gameplayRefreshBlockedUntil = ref(0)
 const questionStateStorageKey = computed(() => {
   const userId = authStore.user?.id ?? 'guest'
   return `codenopoly:web:game-board:${gameId}:question-state:${userId}`
@@ -1724,6 +1729,18 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   }
 
   return fallback
+}
+
+const isRateLimitError = (error: unknown) => {
+  return axios.isAxiosError(error) && error.response?.status === 429
+}
+
+const isGameplayRefreshBlocked = () => {
+  return Date.now() < gameplayRefreshBlockedUntil.value
+}
+
+const blockGameplayRefreshes = (durationMs = GAMEPLAY_RATE_LIMIT_BACKOFF_MS) => {
+  gameplayRefreshBlockedUntil.value = Date.now() + durationMs
 }
 
 const showError = (error: unknown, fallback: string) => {
@@ -1847,6 +1864,24 @@ const canBuyHotelForCurrentProperty = computed(() => {
 
 const isCardTile = computed(() => {
   return currentTileType.value === 'chance' || currentTileType.value === 'community_chest'
+})
+
+const tileDetailDescription = computed(() => {
+  if (currentProperty.value) {
+    return `${currentProperty.value.property_name} • Owner: ${
+      currentProperty.value.owner_name || 'Unowned'
+    } • Houses: ${currentProperty.value.houses} • Hotel: ${
+      currentProperty.value.hotel ? 'Yes' : 'No'
+    } • Rent Due: ${currentRentAmount.value} Cr`
+  }
+
+  if (isCardTile.value) {
+    return currentTileType.value === 'chance'
+      ? 'Draw a Chance card to reveal a random event. This tile does not have a purchase cost, color group, or property rent.'
+      : 'Draw a Community Chest card to reveal a random event. This tile does not have a purchase cost, color group, or property rent.'
+  }
+
+  return tileDescription.value
 })
 
 const currentPositionLabel = computed(() => {
@@ -2005,20 +2040,36 @@ const restorePersistedQuestionState = () => {
 }
 
 const fetchProperties = async () => {
+  if (loadingProperties.value || isGameplayRefreshBlocked()) return
+
   loadingProperties.value = true
   try {
     const response = await api.get<GamePropertiesResponse>(`/api/games/${gameId}/properties`)
     gameProperties.value = response.data.properties || []
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      blockGameplayRefreshes()
+    }
+
+    throw error
   } finally {
     loadingProperties.value = false
   }
 }
 
 const fetchMyProperties = async () => {
+  if (loadingMyProperties.value || isGameplayRefreshBlocked()) return
+
   loadingMyProperties.value = true
   try {
     const response = await api.get<MyPropertiesResponse>(`/api/games/${gameId}/my-properties`)
     myProperties.value = response.data.properties || []
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      blockGameplayRefreshes()
+    }
+
+    throw error
   } finally {
     loadingMyProperties.value = false
   }
@@ -2124,6 +2175,8 @@ const applyLeaderboard = (leaderboard: LeaderboardPlayer[]) => {
 }
 
 const fetchCurrentTurn = async () => {
+  if (loadingTurn.value || isGameplayRefreshBlocked()) return
+
   loadingTurn.value = true
   try {
     const response = await api.get<CurrentTurnResponse>(`/api/games/${gameId}/turn`)
@@ -2138,12 +2191,20 @@ const fetchCurrentTurn = async () => {
     pendingRentFromTurn.value = data.pending_rent ?? null
 
     hasRolledThisTurn.value = data.last_dice_roll !== null
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      blockGameplayRefreshes()
+    }
+
+    throw error
   } finally {
     loadingTurn.value = false
   }
 }
 
 const fetchLeaderboard = async () => {
+  if (loadingLeaderboard.value || isGameplayRefreshBlocked()) return
+
   loadingLeaderboard.value = true
   try {
     const response = await api.get<LeaderboardResponse>(`/api/games/${gameId}/leaderboard`)
@@ -2186,18 +2247,28 @@ const fetchLeaderboard = async () => {
         }
       }
     }
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      blockGameplayRefreshes()
+    }
+
+    throw error
   } finally {
     loadingLeaderboard.value = false
   }
 }
 
 const refreshLeaderboardInBackground = () => {
+  if (isGameplayRefreshBlocked()) return
+
   void fetchLeaderboard().catch((error) => {
     console.error('Failed to refresh leaderboard:', error)
   })
 }
 
 const refreshBoardDataInBackground = () => {
+  if (isGameplayRefreshBlocked()) return
+
   void Promise.all([
     fetchProperties(),
     fetchMyProperties(),
@@ -2208,6 +2279,8 @@ const refreshBoardDataInBackground = () => {
 }
 
 const refreshPropertyDataInBackground = () => {
+  if (isGameplayRefreshBlocked()) return
+
   void Promise.all([
     fetchProperties(),
     fetchMyProperties(),
@@ -2217,7 +2290,7 @@ const refreshPropertyDataInBackground = () => {
 }
 
 const refreshGameStateInBackground = () => {
-  if (boardRefreshInFlight) return
+  if (boardRefreshInFlight || isGameplayRefreshBlocked()) return
 
   boardRefreshInFlight = true
   void fetchLeaderboard()
@@ -2233,6 +2306,17 @@ const handleBoardVisibilityChange = () => {
   if (document.visibilityState === 'visible') {
     refreshGameStateInBackground()
   }
+}
+
+const schedulePropertyRefresh = (delayMs = 1200) => {
+  if (propertyRefreshTimer !== null) {
+    window.clearTimeout(propertyRefreshTimer)
+  }
+
+  propertyRefreshTimer = window.setTimeout(() => {
+    propertyRefreshTimer = null
+    refreshPropertyDataInBackground()
+  }, delayMs)
 }
 
 const handleRollDice = async () => {
@@ -2796,7 +2880,7 @@ onMounted(async () => {
       if (document.visibilityState !== 'visible') return
 
       refreshGameStateInBackground()
-    }, 2000)
+    }, GAME_STATE_REFRESH_INTERVAL_MS)
 
     document.addEventListener('visibilitychange', handleBoardVisibilityChange)
     window.addEventListener('focus', refreshGameStateInBackground)
@@ -2869,7 +2953,7 @@ onMounted(async () => {
 
     gameChannel.listen('.leaderboard.updated', async (event: LeaderboardUpdatedEvent) => {
       applyLeaderboard(event.leaderboard)
-      refreshPropertyDataInBackground()
+      schedulePropertyRefresh()
 
       const currentPlayer = event.leaderboard.find(
         (player) => player.user_id === authStore.user?.id
@@ -2977,6 +3061,11 @@ onUnmounted(() => {
   if (boardRefreshTimer !== null) {
     window.clearInterval(boardRefreshTimer)
     boardRefreshTimer = null
+  }
+
+  if (propertyRefreshTimer !== null) {
+    window.clearTimeout(propertyRefreshTimer)
+    propertyRefreshTimer = null
   }
 
   document.removeEventListener('visibilitychange', handleBoardVisibilityChange)

@@ -302,6 +302,28 @@ export default function GameSessionScreen() {
   return currentProperty.rent
 }, [currentProperty])
 
+const isCardTile = useMemo(() => {
+  const tileLabel = (currentProperty?.tile_name || currentTile || '').trim().toLowerCase()
+  return tileLabel === 'chance' || tileLabel === 'community chest'
+}, [currentProperty?.tile_name, currentTile])
+
+const tileDetailDescription = useMemo(() => {
+  if (currentProperty) {
+    return `${currentProperty.property_name} • Owner: ${
+      currentProperty.owner_name || 'Unowned'
+    } • Houses: ${currentProperty.houses} • Hotel: ${
+      currentProperty.hotel ? 'Yes' : 'No'
+    } • Rent Due: ${currentRentAmount} Cr`
+  }
+
+  if (isCardTile) {
+    const tileLabel = (currentProperty?.tile_name || currentTile || '').trim()
+    return `Draw a ${tileLabel || 'card'} to reveal a random event. This tile does not have a purchase cost, color group, or property rent.`
+  }
+
+  return 'Tile details will appear once you roll and scan the board tile.'
+}, [currentProperty, currentRentAmount, currentTile, isCardTile])
+
 const canBuyCurrentProperty = useMemo(() => {
   return (
     !!currentProperty &&
@@ -1428,38 +1450,34 @@ const visiblePropertyActionCount = useMemo(() => {
           </View>
 
           <View className="bg-surface-container-lowest p-8">
-            <View className="mb-6 flex-row gap-8">
-              <View className="flex-1">
-                <Text className="mb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                  Execution Cost
-                </Text>
-                <Text className="text-2xl font-black text-on-surface">
-                  {currentProperty ? `${currentProperty.cost} Cr` : '—'}
-                </Text>
-              </View>
+            {!isCardTile && (
+              <View className="mb-6 flex-row gap-8">
+                <View className="flex-1">
+                  <Text className="mb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                    Execution Cost
+                  </Text>
+                  <Text className="text-2xl font-black text-on-surface">
+                    {currentProperty ? `${currentProperty.cost} Cr` : '—'}
+                  </Text>
+                </View>
 
-              <View className="flex-1">
-                <Text className="mb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                  Runtime Yield
-                </Text>
-                <Text className="text-2xl font-black text-tertiary">
-                  {currentProperty?.color_group || '—'}
-                </Text>
+                <View className="flex-1">
+                  <Text className="mb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                    Runtime Yield
+                  </Text>
+                  <Text className="text-2xl font-black text-tertiary">
+                    {currentProperty?.color_group || '—'}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
             <Text className="mb-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
               Description
             </Text>
 
             <Text className="text-sm leading-6 text-on-surface-variant">
-              {currentProperty
-                ? `${currentProperty.property_name} • Owner: ${
-                    currentProperty.owner_name || 'Unowned'
-                  } • Houses: ${currentProperty.houses} • Hotel: ${
-                    currentProperty.hotel ? 'Yes' : 'No'
-                  } • Rent Due: ${currentRentAmount} Cr`
-                : 'Tile details will appear once you roll and scan the board tile.'}
+              {tileDetailDescription}
             </Text>
           </View>
         </View>

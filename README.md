@@ -56,6 +56,66 @@ codenopoly/
 - Pusher account/credentials for realtime updates
 - Ngrok or another reachable backend URL for physical-device mobile testing when needed
 
+## Fast Startup Cheat Sheet
+
+Docker:
+
+```powershell
+docker compose up -d
+```
+
+Expo:
+
+```powershell
+cd mobile
+npx expo start -c
+```
+
+Ngrok:
+
+```powershell
+ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
+```
+
+## Android Lecturer Test Path
+
+Official mobile testing path:
+
+- Use Android as the main test device.
+- Install the provided APK: [base 3.apk](</C:/Users/User/Documents/jenn/codenopoly/base 3.apk>)
+- After installation, open the installed `mobile` app.
+- Do not open the `EAS` app for gameplay testing.
+
+Before testing the APK:
+
+```powershell
+docker compose up -d
+ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
+```
+
+How the lecturer should install the APK:
+
+1. Receive the full project folder or submission archive that contains `base 3.apk`.
+2. Copy `base 3.apk` to an Android phone if it is not already on the device.
+3. On the Android phone, open the file manager and locate `base 3.apk`.
+4. Tap `base 3.apk` to begin installation.
+5. If Android shows a security warning, allow installation from unknown sources for this install.
+6. Complete the installation.
+7. Open the installed `mobile` app.
+8. If both `EAS` and `mobile` appear on the phone, open `mobile`.
+9. Make sure the project owner has already started:
+
+```powershell
+docker compose up -d
+ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
+```
+
+Important notes:
+
+- The lecturer should test on Android.
+- The `EAS` app is not the CodeNopoly game app.
+- The APK installation may be blocked until Android permission is granted for unknown sources.
+
 ## Environment Files
 
 Working environment files already exist in this repository, but their values are intentionally not reproduced here.
@@ -220,14 +280,18 @@ Mobile notes:
 
 ## Ngrok Setup
 
-The mobile app contains explicit handling for ngrok-backed API access. The working ngrok URL in the current private environment was intentionally not exposed here.
+Use this command to expose the Laravel backend on port `8000`:
 
-If the existing working ngrok tunnel is still active:
+```powershell
+ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
+```
+
+If this ngrok tunnel is active:
 
 - keep the current `EXPO_PUBLIC_API_URL` value unchanged
 - start Expo normally
 
-If you must replace it in your own private environment:
+If you intentionally want to replace it in your own private environment:
 
 - start a tunnel that exposes the Laravel backend
 - update `mobile/.env` privately so `EXPO_PUBLIC_API_URL` points to the reachable backend base URL
@@ -362,5 +426,3 @@ The submission package should include at minimum:
 - `SUBMISSION_CHECKLIST.md`
 - `LECTURER_QUICK_START.md`
 - `SUBMISSION_READINESS_REPORT.md`
-
-See [LECTURER_QUICK_START.md](/C:/Users/User/Documents/jenn/codenopoly/LECTURER_QUICK_START.md) for the shortest startup path and [SUBMISSION_READINESS_REPORT.md](/C:/Users/User/Documents/jenn/codenopoly/SUBMISSION_READINESS_REPORT.md) for validation results and known limitations.

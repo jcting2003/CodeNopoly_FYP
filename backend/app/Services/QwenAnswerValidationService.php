@@ -10,6 +10,12 @@ class QwenAnswerValidationService
 {
     public function validateAnswer(Question $question, string $studentAnswer): array
     {
+        $deterministicResult = $this->deterministicValidation($question, $studentAnswer);
+
+        if ($deterministicResult !== null) {
+            return $deterministicResult;
+        }
+
         $baseUrl = rtrim(config('services.ollama.base_url'), '/');
         $model = config('services.ollama.model');
         $connectTimeout = (int) config('services.ollama.connect_timeout', 5);
@@ -142,45 +148,26 @@ class QwenAnswerValidationService
 
     private function buildValidationPrompt(Question $question, string $studentAnswer): string
     {
-        $questionText = $question->question_text ?? '';
-        $expectedAnswer = $question->expected_answer ?? '';
-        $rubric = $question->rubric ?? '';
+        $questionText = $this->sanitizePromptSection($question->question_text ?? '');
+        $expectedAnswer = $this->sanitizePromptSection($question->expected_answer ?? '');
+        $rubric = $this->sanitizePromptSection($question->rubric ?? '');
+        $studentAnswer = $this->sanitizePromptSection($studentAnswer);
 
         return <<<PROMPT
-You are an AI validator for a Python programming learning game.
+You are grading a beginner Python answer for a learning game.
 
-Your job is to decide whether the student's answer satisfies the programming question.
+Decide only whether the student answer satisfies the required rubric items.
 
-You must be fair, consistent, and practical.
-
-Important grading rules:
-1. Do NOT require exact wording.
-2. Do NOT require the student's code to be identical to the expected answer.
+Rules:
+1. Use the rubric as the main grading guide.
+2. The expected answer is only a reference example, not the only correct answer.
 3. Accept equivalent correct Python code.
-4. Extra valid code such as print() is acceptable unless the question forbids it.
-5. If the user's code performs the required task correctly, mark it correct.
-6. If the answer is unrelated, incomplete, or does not satisfy the main task, mark it incorrect.
-7. Do not contradict yourself.
-8. Do not say an answer is wrong and then provide the same answer as the correction.
-9. The expected answer is a reference answer, not the only possible answer.
-10. Use the rubric as the main marking guide.
-
-Special Python validation examples:
-- If the question asks to create a list called items and append "apple", then this is correct:
-  items = []
-  items.append("apple")
-  print(items)
-
-- If the question asks to convert "python" to uppercase and print it, then this is correct:
-  print("python".upper())
-
-- If the question asks for an if statement checking x > 3 and printing "Yes", then this is correct:
-  if x > 3:
-      print("Yes")
-
-- If the question asks for a function named greet that prints "Hello", then this is correct:
-  def greet():
-      print("Hello")
+4. Do NOT require exact wording, exact formatting, exact variable names, or exact file names unless the question explicitly requires them.
+5. Extra harmless code such as print(), storing in a variable first, or using a different file name is acceptable unless the question forbids it.
+6. Check the rubric items one by one before deciding.
+7. Mark correct only if all required rubric items are satisfied.
+8. Mark incorrect if any required rubric item is missing or the answer is unrelated.
+9. Keep feedback short, clear, and student-friendly.
 
 Return ONLY valid JSON.
 Do not include markdown.
@@ -190,28 +177,24 @@ Do not include explanation outside JSON.
 Required JSON format:
 {
   "is_correct": true,
-  "score": 100,
   "feedback": "Short feedback for the student."
 }
 
-Scoring rules:
-- score must be an integer from 0 to 100.
-- Use 100 when the answer fully satisfies the question.
-- Use 50 to 79 only when the answer is partially correct but not enough for full correctness.
-- Use 0 when the answer is wrong or unrelated.
-- is_correct should be true only when the score is 80 or above.
-
-Question:
+QUESTION_START
 {$questionText}
+QUESTION_END
 
-Expected Answer:
-{$expectedAnswer}
-
-Rubric:
+RUBRIC_START
 {$rubric}
+RUBRIC_END
 
-Student Answer:
+REFERENCE_ANSWER_START
+{$expectedAnswer}
+REFERENCE_ANSWER_END
+
+STUDENT_ANSWER_START
 {$studentAnswer}
+STUDENT_ANSWER_END
 
 Now evaluate the student answer.
 Return JSON only.
@@ -283,6 +266,55 @@ Return JSON only.
 PROMPT;
     }
 
+    private function deterministicValidation(Question $question, string $studentAnswer): ?array
+    {
+        if ($this->matchesFileReadQuestion($question)) {
+            return $this->validateFileReadAnswer($studentAnswer);
+        }
+
+        return null;
+    }
+
+    private function matchesFileReadQuestion(Question $question): bool
+    {
+        $questionText = strtolower($question->question_text ?? '');
+        $rubric = strtolower($question->rubric ?? '');
+
+        return str_contains($questionText, 'with open') &&
+            str_contains($questionText, 'file for reading') &&
+            str_contains($rubric, 'read mode') &&
+            str_contains($rubric, 'read or access file content');
+    }
+
+    private function validateFileReadAnswer(string $studentAnswer): array
+    {
+        $normalized = strtolower(str_replace(["\r", "\n", "\t"], ' ', $studentAnswer));
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+
+        $usesWithOpen = str_contains($normalized, 'with open(');
+        $usesReadMode =
+            str_contains($normalized, '"r"') ||
+            str_contains($normalized, "'r'") ||
+            preg_match('/,\s*r\s*\)/', $normalized) === 1;
+        $accessesContent =
+            str_contains($normalized, '.read(') ||
+            preg_match('/for\s+\w+\s+in\s+\w+/', $normalized) === 1;
+
+        if ($usesWithOpen && $usesReadMode && $accessesContent) {
+            return [
+                'status' => 'ok',
+                'is_correct' => true,
+                'feedback' => 'Your answer correctly opens the file for reading using with open(...) and accesses the file content.',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'is_correct' => false,
+            'feedback' => 'Your answer needs to use with open(...), specify read mode "r", and read or access the file content.',
+        ];
+    }
+
     private function hintLooksTooDetailed(string $hint, Question $question): bool
     {
         $questionText = strtolower($question->question_text ?? '');
@@ -324,8 +356,6 @@ PROMPT;
             'e.g.',
             'like this',
             'you can write',
-            'write',
-            'type',
         ];
 
         foreach ($blockedPatterns as $pattern) {
@@ -382,6 +412,13 @@ PROMPT;
             'loop',
             'condition',
             'statement',
+            'read',
+            'from',
+            'into',
+            'after',
+            'before',
+            'called',
+            'named',
         ];
 
         foreach ($words[0] ?? [] as $word) {
@@ -471,18 +508,7 @@ PROMPT;
 
     private function normalizeValidationResult(array $result): array
     {
-        $score = (int) ($result['score'] ?? 0);
-        $score = max(0, min(100, $score));
-
         $isCorrect = (bool) ($result['is_correct'] ?? false);
-
-        if ($score >= 80) {
-            $isCorrect = true;
-        }
-
-        if ($score < 80) {
-            $isCorrect = false;
-        }
 
         $feedback = trim((string) ($result['feedback'] ?? ''));
 
@@ -493,8 +519,8 @@ PROMPT;
         }
 
         return [
+            'status' => 'ok',
             'is_correct' => $isCorrect,
-            'score' => $score,
             'feedback' => $feedback,
         ];
     }
@@ -502,8 +528,8 @@ PROMPT;
     private function fallbackValidationResult(string $message): array
     {
         return [
+            'status' => 'unavailable',
             'is_correct' => false,
-            'score' => 0,
             'feedback' => $message,
         ];
     }
@@ -513,5 +539,25 @@ PROMPT;
         return [
             'hint' => $message,
         ];
+    }
+
+    private function sanitizePromptSection(string $value): string
+    {
+        $value = str_replace(
+            [
+                'QUESTION_START',
+                'QUESTION_END',
+                'RUBRIC_START',
+                'RUBRIC_END',
+                'REFERENCE_ANSWER_START',
+                'REFERENCE_ANSWER_END',
+                'STUDENT_ANSWER_START',
+                'STUDENT_ANSWER_END',
+            ],
+            '',
+            $value
+        );
+
+        return trim($value);
     }
 }
