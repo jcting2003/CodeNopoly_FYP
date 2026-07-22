@@ -83,6 +83,74 @@ docker compose up -d
 ngrok http --url=nondrying-drachmal-bertie.ngrok-free.dev 8000
 ```
 
+Ngrok requirement for this exact command:
+
+- `ngrok` must be installed on the machine being used.
+- The user must be logged into the same ngrok account that owns `nondrying-drachmal-bertie.ngrok-free.dev`.
+- The machine can be different, but the backend and ngrok command must be run on that same machine.
+
+Alternative if uses a personal ngrok account:
+
+1. Create or log into a personal ngrok account.
+2. Start the backend:
+
+```powershell
+docker compose up -d
+```
+
+3. Start a tunnel on port `8000`:
+
+```powershell
+ngrok http 8000
+```
+
+4. Copy the public HTTPS ngrok URL.
+5. Update `mobile/.env` so `EXPO_PUBLIC_API_URL` points to that URL with `/api` at the end.
+
+Example:
+
+```env
+EXPO_PUBLIC_API_URL=https://your-ngrok-url/api
+```
+
+Important limitation:
+
+- Changing `mobile/.env` does not update an already-built APK.
+- If a different ngrok URL is used, the mobile app must be run through Expo again or rebuilt as a new APK after updating `mobile/.env`.
+
+How to build a new APK after changing `mobile/.env`:
+
+1. Go to the `mobile` folder:
+
+```powershell
+cd mobile
+```
+
+2. Confirm `mobile/.env` contains the correct backend URL:
+
+```env
+EXPO_PUBLIC_API_URL=https://your-ngrok-url/api
+EXPO_PUBLIC_PUSHER_APP_KEY=a4f918ac9c14b53937b3
+EXPO_PUBLIC_PUSHER_APP_CLUSTER=ap1
+```
+
+3. Log into Expo / EAS if required:
+
+```powershell
+npx eas login
+```
+
+4. Build a new Android APK:
+
+```powershell
+npx eas build -p android --profile preview
+```
+
+5. Wait for the build to finish.
+6. Download the new APK from the EAS build link.
+7. Install the new APK on the Android phone.
+8. Open the installed `mobile` app.
+
 3. If using Expo during development, start it from `mobile`:
 
 ```powershell
