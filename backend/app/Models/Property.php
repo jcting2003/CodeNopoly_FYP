@@ -9,6 +9,10 @@ class Property extends Model
 {
     use HasFactory;
 
+    private const NON_UPGRADABLE_GROUPS = ['railroad', 'utility'];
+
+    public $timestamps = false;
+
     protected $fillable = [
         'tile_id',
         'property_name',
@@ -31,5 +35,12 @@ class Property extends Model
     public function gameProperties()
     {
         return $this->hasMany(GameProperty::class);
+    }
+
+    public function supportsUpgrades(): bool
+    {
+        return ! in_array($this->color_group, self::NON_UPGRADABLE_GROUPS, true)
+            && (int) $this->house_cost > 0
+            && (int) $this->hotel_cost > 0;
     }
 }

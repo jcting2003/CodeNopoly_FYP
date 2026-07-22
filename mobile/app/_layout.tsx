@@ -1,65 +1,73 @@
 import '../global.css'
 import { Stack } from 'expo-router'
 import { AuthProvider } from '../src/context/AuthContext'
+import { PopupProvider } from '../src/components/PopupProvider'
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <Stack>
-        <Stack.Screen
-          name="index"
-          options={{ headerShown: false }}
-        />
+      <PopupProvider>
+        <Stack>
+          <Stack.Screen
+            name="index"
+            options={{ headerShown: false }}
+          />
 
-        <Stack.Screen
-          name="login"
-          options={{ headerShown: false }}
-        />
+          <Stack.Screen
+            name="login"
+            options={{ headerShown: false }}
+          />
 
-        <Stack.Screen
-          name="dashboard"
-          options={{ headerShown: false }}
-        />
+          <Stack.Screen
+            name="dashboard"
+            options={{ headerShown: false }}
+          />
 
-        <Stack.Screen
-          name="join-game"
-          options={{ title: 'Join Game' }}
-        />
+          <Stack.Screen
+            name="create-game"
+            options={{ title: 'Create Game' }}
+          />
 
-        <Stack.Screen
-          name="game-lobby/[id]"
-          options={{ title: 'Game Lobby' }}
-        />
+          <Stack.Screen
+            name="join-game"
+            options={{ title: 'Join Game' }}
+          />
 
-        <Stack.Screen
-          name="my-games"
-          options={{ title: 'My Games' }}
-        />
+          <Stack.Screen
+            name="game-lobby/[id]"
+            options={{ title: 'Game Lobby' }}
+          />
 
-        <Stack.Screen
-          name="profile"
-          options={{ title: 'Profile' }}
-        />
+          <Stack.Screen
+            name="my-games"
+            options={{ title: 'My Games' }}
+          />
 
-        <Stack.Screen
-          name="game-session/[id]"
-          options={{ title: 'Game Session' }}
-        />
+          <Stack.Screen
+            name="profile"
+            options={{ title: 'Profile' }}
+          />
 
-        <Stack.Screen
-          name="scanner/[id]"
-          options={{ title: 'QR Scanner' }}
-        />
+          <Stack.Screen
+            name="game-session/[id]"
+            options={{ title: 'Game Session' }}
+          />
 
-        <Stack.Screen
-          name="question"
-          options={{ title: 'Question' }}
-        />
-        <Stack.Screen
-          name="final-leaderboard/[id]"
-          options={{ title: 'Final Leaderboard' }}
-        />
-      </Stack>
+          <Stack.Screen
+            name="scanner/[id]"
+            options={{ title: 'QR Scanner' }}
+          />
+
+          <Stack.Screen
+            name="question"
+            options={{ title: 'Question' }}
+          />
+          <Stack.Screen
+            name="final-leaderboard/[id]"
+            options={{ title: 'Final Leaderboard' }}
+          />
+        </Stack>
+      </PopupProvider>
     </AuthProvider>
   )
 }

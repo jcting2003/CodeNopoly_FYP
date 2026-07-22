@@ -1,74 +1,98 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
+  Linking,
   useWindowDimensions,
   View,
 } from 'react-native'
-import { router } from 'expo-router'
+import { router, useRootNavigationState } from 'expo-router'
 import { useAuth } from '../src/context/AuthContext'
+import { popup } from '../src/services/popup'
 
 type AuthTab = 'login' | 'register'
 
 export default function LoginScreen() {
-  const { login, register } = useAuth()
+  const { user, loading, login, register, forgotPassword } = useAuth()
+  const rootNavigationState = useRootNavigationState()
   const { width } = useWindowDimensions()
 
-  const isWideScreen = width >= 768
+  const isWideScreen = width >= 900
 
   const [activeTab, setActiveTab] = useState<AuthTab>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
   const [registerName, setRegisterName] = useState('')
   const [registerEmail, setRegisterEmail] = useState('')
   const [registerPassword, setRegisterPassword] = useState('')
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [forgotPasswordVisible, setForgotPasswordVisible] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+  const [forgotPasswordSubmitting, setForgotPasswordSubmitting] = useState(false)
+  const [forgotPasswordLink, setForgotPasswordLink] = useState('')
+
+  useEffect(() => {
+    if (!loading && user && rootNavigationState?.key) {
+      router.replace('/dashboard')
+    }
+  }, [loading, rootNavigationState?.key, user])
+
+  const switchTab = (tab: AuthTab) => {
+    setActiveTab(tab)
+    setSuccessMessage('')
+  }
 
   const handleLogin = async () => {
+    setSuccessMessage('')
+
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Details', 'Please enter your email and password.')
+      popup.alert('Missing Details', 'Please enter your email and password.')
       return
     }
 
     try {
       setSubmitting(true)
       await login(email.trim(), password)
-      router.replace('/dashboard')
     } catch (error: any) {
       const message =
         error.response?.data?.message || 'Failed to login. Please try again.'
 
-      Alert.alert('Login Failed', message)
+      popup.alert('Login Failed', message)
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleRegister = async () => {
+    setSuccessMessage('')
+
     if (
       !registerName.trim() ||
       !registerEmail.trim() ||
       !registerPassword.trim() ||
       !registerConfirmPassword.trim()
     ) {
-      Alert.alert('Missing Details', 'Please complete all registration fields.')
+      popup.alert('Missing Details', 'Please complete all registration fields.')
       return
     }
 
     if (registerPassword !== registerConfirmPassword) {
-      Alert.alert('Password Error', 'Passwords do not match.')
+      popup.alert('Password Error', 'Passwords do not match.')
       return
     }
 
     if (registerPassword.length < 8) {
-      Alert.alert('Password Error', 'Password must be at least 8 characters.')
+      popup.alert('Password Error', 'Password must be at least 8 characters.')
       return
     }
 
@@ -82,15 +106,10 @@ export default function LoginScreen() {
         password_confirmation: registerConfirmPassword,
       })
 
-      Alert.alert(
-        'Registration Successful',
-        'Your account has been created. Please login with your new account.'
-      )
-
+      setSuccessMessage('Registration successful. Please log in.')
       setActiveTab('login')
       setEmail(registerEmail.trim())
       setPassword('')
-
       setRegisterName('')
       setRegisterEmail('')
       setRegisterPassword('')
@@ -103,173 +122,205 @@ export default function LoginScreen() {
         error.response?.data?.errors?.name?.[0] ||
         'Failed to register. Please try again.'
 
-      Alert.alert('Register Failed', message)
+      popup.alert('Register Failed', message)
     } finally {
       setSubmitting(false)
     }
   }
 
+  const openForgotPasswordModal = () => {
+    setSuccessMessage('')
+    setForgotPasswordEmail(email.trim())
+    setForgotPasswordLink('')
+    setForgotPasswordVisible(true)
+  }
+
+  const closeForgotPasswordModal = () => {
+    if (forgotPasswordSubmitting) {
+      return
+    }
+
+    setForgotPasswordVisible(false)
+  }
+
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail.trim()) {
+      popup.alert('Missing Email', 'Please enter the email address for your account.')
+      return
+    }
+
+    try {
+      setForgotPasswordSubmitting(true)
+      const response = await forgotPassword(forgotPasswordEmail.trim())
+      setSuccessMessage(response.message)
+      setForgotPasswordLink(response.reset_url || '')
+
+      if (!response.reset_url) {
+        setForgotPasswordVisible(false)
+      }
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message || 'Unable to send a password reset link right now.'
+
+      popup.alert('Reset Link Failed', message)
+    } finally {
+      setForgotPasswordSubmitting(false)
+    }
+  }
+
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          flexGrow: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 16,
-        }}
+    <SafeAreaView className="flex-1 bg-[#F7F9FF]">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View
-          className={`w-full max-w-6xl overflow-hidden rounded-[2rem] bg-surface-container-low shadow-2xl ${
-            isWideScreen ? 'flex-row' : 'flex-col'
-          }`}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="flex-grow items-center justify-center p-4"
         >
-          {isWideScreen && (
-            <View className="relative flex-1 overflow-hidden bg-inverse-surface p-10">
-              <View className="absolute inset-0 bg-black/50" />
+          <View
+            className={`w-full max-w-[1100px] overflow-hidden rounded-[32px] bg-[#EEF4FC] shadow-lg ${
+              isWideScreen ? 'flex-row' : 'max-w-[560px]'
+            }`}
+          >
+            {isWideScreen ? (
+              <View className="min-h-[620px] flex-1 overflow-hidden rounded-l-[32px] bg-[#0A0F13]">
+                <View className="absolute inset-0 bg-black/35" />
 
-              <View className="relative z-10 flex-1 items-center justify-center">
-                <View className="items-center">
-                  <View className="relative h-64 w-64 rotate-3 items-center justify-center overflow-hidden rounded-3xl bg-primary shadow-2xl">
-                    <View className="absolute inset-0 bg-white/10" />
+                <View className="flex-1 items-center justify-center p-9">
+                  <View className="relative h-[250px] w-[250px] rotate-3 items-center justify-center rounded-[28px] bg-[#1E6397]">
+                    <View className="absolute inset-0 rounded-[28px] bg-white/10" />
 
-                    <View className="-rotate-3 items-center">
-                      <Text className="text-[120px] font-black text-on-primary">
-                        ◈
+                    <Text className="text-[110px] font-black text-[#F7F9FF]">
+                      ◈
+                    </Text>
+
+                    <View className="absolute -bottom-2 -right-2 h-12 w-12 items-center justify-center rounded-full border-4 border-[#1E6397] bg-[#006E37]">
+                      <Text className="text-base font-black text-white">
+                        {'>_'}
                       </Text>
-
-                      <View className="absolute -bottom-1 -right-2 h-12 w-12 items-center justify-center rounded-full border-4 border-primary bg-tertiary">
-                        <Text className="text-lg font-black text-white">
-                          {'>_'}
-                        </Text>
-                      </View>
                     </View>
                   </View>
 
-                  <View className="mt-12 items-center">
-                    <Text className="text-5xl font-black tracking-tighter text-on-primary">
-                      CodeNopoly
-                      <Text className="text-tertiary-container">_</Text>
+                  <View className="mt-9">
+                    <Text className="text-center text-5xl font-black tracking-[-1.5px] text-[#F7F9FF]">
+                      CodeNopoly<Text className="text-[#6BFE9C]">_</Text>
                     </Text>
 
-                    <Text className="mt-2 text-lg font-semibold uppercase tracking-[4px] text-outline-variant">
+                    <Text className="mt-3 text-center text-base font-bold uppercase tracking-[3px] text-[#A9B3BE]">
                       The Logic of Wealth
                     </Text>
                   </View>
                 </View>
               </View>
-            </View>
-          )}
+            ) : null}
 
-          <View className="flex-1 justify-center bg-surface-container-lowest p-8 md:p-12">
-            {!isWideScreen && (
-              <View className="mb-10 items-center">
-                <View className="mb-5 h-24 w-24 rotate-3 items-center justify-center rounded-3xl bg-primary shadow-lg">
-                  <Text className="-rotate-3 text-5xl font-black text-on-primary">
-                    ◈
+            <View
+              className={`min-h-[620px] flex-1 justify-center bg-white px-7 py-10 ${
+                isWideScreen ? 'rounded-r-[32px]' : 'rounded-[32px]'
+              }`}
+            >
+              {!isWideScreen ? (
+                <View className="mb-7 items-center">
+                  <View className="mb-4 h-24 w-24 rotate-3 items-center justify-center rounded-3xl bg-[#1E6397]">
+                    <Text className="-rotate-3 text-[50px] font-black text-[#F7F9FF]">
+                      ◈
+                    </Text>
+                  </View>
+
+                  <Text className="text-[38px] font-black tracking-[-1.2px] text-[#2A333C]">
+                    CodeNopoly<Text className="text-[#006E37]">_</Text>
+                  </Text>
+
+                  <Text className="mt-1 text-[11px] font-extrabold uppercase tracking-[3px] text-[#56606A]">
+                    The Logic of Wealth
+                  </Text>
+                </View>
+              ) : null}
+
+              <View className="mb-7 flex-row items-end justify-between">
+                <View>
+                  <Text className="text-4xl font-extrabold tracking-[-1px] text-[#2A333C]">
+                    CodeNopoly
+                  </Text>
+
+                  <Text className="mt-1 text-base text-[#56606A]">
+                    Access the main frame
                   </Text>
                 </View>
 
-                <Text className="text-4xl font-black tracking-tighter text-on-surface">
-                  CodeNopoly
-                  <Text className="text-tertiary">_</Text>
-                </Text>
-
-                <Text className="mt-1 text-xs font-bold uppercase tracking-[3px] text-on-surface-variant">
-                  The Logic of Wealth
-                </Text>
-              </View>
-            )}
-
-            <View className="mb-10 flex-row items-end justify-between">
-              <View>
-                <Text className="text-4xl font-black tracking-tighter text-on-surface">
-                  CodeNopoly
-                </Text>
-                <Text className="mt-1 text-base text-on-surface-variant">
-                  Access the main frame
-                </Text>
+                <View className="h-12 w-12 items-center justify-center rounded-[18px] bg-[#EEF4FC]">
+                  <Text className="text-base font-extrabold text-[#04578A]">
+                    {'>_'}
+                  </Text>
+                </View>
               </View>
 
-              <View className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-surface-container-low sm:flex">
-                <Text className="text-base font-black text-primary-dim">
-                  {'>_'}
-                </Text>
-              </View>
-            </View>
-
-            <View className="mx-auto mb-10 w-full max-w-xs flex-row rounded-full bg-surface-container-low p-1.5">
-              <Pressable
-                onPress={() => setActiveTab('login')}
-                className={`flex-1 rounded-full py-2 ${
-                  activeTab === 'login'
-                    ? 'bg-primary-container shadow-sm'
-                    : ''
-                }`}
-              >
-                <Text
-                  className={`text-center text-sm font-bold ${
-                    activeTab === 'login'
-                      ? 'text-on-primary-container'
-                      : 'text-on-surface-variant'
+              <View className="mb-7 flex-row rounded-full bg-[#EEF4FC] p-1.5">
+                <Pressable
+                  onPress={() => switchTab('login')}
+                  className={`flex-1 items-center rounded-full py-2.5 ${
+                    activeTab === 'login' ? 'bg-[#8CC6FF]' : ''
                   }`}
                 >
-                  Login
-                </Text>
-              </Pressable>
+                  <Text
+                    className={`text-sm font-extrabold ${
+                      activeTab === 'login'
+                        ? 'text-[#003F67]'
+                        : 'text-[#56606A]'
+                    }`}
+                  >
+                    Login
+                  </Text>
+                </Pressable>
 
-              <Pressable
-                onPress={() => setActiveTab('register')}
-                className={`flex-1 rounded-full py-2 ${
-                  activeTab === 'register'
-                    ? 'bg-primary-container shadow-sm'
-                    : ''
-                }`}
-              >
-                <Text
-                  className={`text-center text-sm font-bold ${
-                    activeTab === 'register'
-                      ? 'text-on-primary-container'
-                      : 'text-on-surface-variant'
+                <Pressable
+                  onPress={() => switchTab('register')}
+                  className={`flex-1 items-center rounded-full py-2.5 ${
+                    activeTab === 'register' ? 'bg-[#8CC6FF]' : ''
                   }`}
                 >
-                  Register
-                </Text>
-              </Pressable>
-            </View>
+                  <Text
+                    className={`text-sm font-extrabold ${
+                      activeTab === 'register'
+                        ? 'text-[#003F67]'
+                        : 'text-[#56606A]'
+                    }`}
+                  >
+                    Register
+                  </Text>
+                </Pressable>
+              </View>
 
-            {activeTab === 'login' ? (
-              <View className="gap-6">
-                <View className="gap-4">
-                  <View>
-                    <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
+              {activeTab === 'login' ? (
+                <View className="gap-5 pb-2">
+                  <View className="gap-2">
+                    <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
                       Email Endpoint
                     </Text>
 
                     <TextInput
                       value={email}
                       onChangeText={setEmail}
-                      placeholder="dev@pythonopoly.io"
+                      placeholder="dev@codenopoly.io"
                       placeholderTextColor="#727C86"
                       keyboardType="email-address"
                       autoCapitalize="none"
-                      className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                      className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
                     />
                   </View>
 
-                  <View>
-                    <View className="mb-1 flex-row items-center justify-between px-1">
-                      <Text className="text-xs font-black uppercase tracking-wider text-on-surface-variant">
+                  <View className="gap-2">
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
                         Access Secret
                       </Text>
 
-                      <Text className="text-xs font-bold text-primary">
-                        Forgot Secret?
-                      </Text>
+                      <Pressable onPress={openForgotPasswordModal}>
+                        <Text className="text-xs font-bold text-[#1E6397]">
+                          Forgot Secret?
+                        </Text>
+                      </Pressable>
                     </View>
 
                     <TextInput
@@ -278,120 +329,218 @@ export default function LoginScreen() {
                       placeholder="••••••••"
                       placeholderTextColor="#727C86"
                       secureTextEntry
-                      className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                      className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
                     />
                   </View>
-                </View>
 
-                <Pressable
-                  onPress={handleLogin}
-                  disabled={submitting}
-                  className={`h-14 flex-row items-center justify-center gap-2 rounded-full bg-primary shadow-lg ${
-                    submitting ? 'opacity-60' : 'active:scale-[0.98]'
-                  }`}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#F7F9FF" />
-                  ) : (
-                    <>
-                      <Text className="text-lg font-black text-on-primary">
-                        Execute Login
+                  {successMessage ? (
+                    <Text className="text-sm font-semibold text-green-700">
+                      {successMessage}
+                    </Text>
+                  ) : null}
+
+                  <Pressable
+                    onPress={handleLogin}
+                    disabled={submitting}
+                    className={`mt-3 h-[60px] items-center justify-center rounded-full border border-[#185B8A] bg-[#1F6FA8] shadow-lg ${
+                      submitting ? 'opacity-85' : 'opacity-100 active:scale-[0.98]'
+                    }`}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <View className="w-full flex-row items-center justify-center">
+                        <Text className="text-[17px] font-black text-white">
+                          Execute Login
+                        </Text>
+                        <Text className="ml-2.5 text-lg font-extrabold text-white">
+                          ↪
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <View className="gap-5 pb-2">
+                  <View
+                    className={`gap-3.5 ${
+                      isWideScreen ? 'flex-row' : 'flex-col'
+                    }`}
+                  >
+                    <View className="flex-1 gap-2">
+                      <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                        Handle
                       </Text>
-                      <Text className="text-xl font-black text-on-primary">
-                        ↪
+
+                      <TextInput
+                        value={registerName}
+                        onChangeText={setRegisterName}
+                        placeholder="py_coder"
+                        placeholderTextColor="#727C86"
+                        autoCapitalize="none"
+                        className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
+                      />
+                    </View>
+
+                    <View className="flex-1 gap-2">
+                      <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                        Email
                       </Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            ) : (
-              <View className="gap-5">
-                <View className={`${isWideScreen ? 'flex-row' : 'flex-col'} gap-4`}>
-                  <View className="flex-1">
-                    <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
-                      Handle
+
+                      <TextInput
+                        value={registerEmail}
+                        onChangeText={setRegisterEmail}
+                        placeholder="dev@mail.com"
+                        placeholderTextColor="#727C86"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
+                      />
+                    </View>
+                  </View>
+
+                  <View className="gap-2">
+                    <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                      Access Secret
                     </Text>
 
                     <TextInput
-                      value={registerName}
-                      onChangeText={setRegisterName}
-                      placeholder="py_coder"
+                      value={registerPassword}
+                      onChangeText={setRegisterPassword}
+                      placeholder="••••••••"
                       placeholderTextColor="#727C86"
-                      autoCapitalize="none"
-                      className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                      secureTextEntry
+                      className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
                     />
                   </View>
 
-                  <View className="flex-1">
-                    <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
-                      Email
+                  <View className="gap-2">
+                    <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                      Confirm Secret
                     </Text>
 
                     <TextInput
-                      value={registerEmail}
-                      onChangeText={setRegisterEmail}
-                      placeholder="dev@mail.com"
+                      value={registerConfirmPassword}
+                      onChangeText={setRegisterConfirmPassword}
+                      placeholder="••••••••"
                       placeholderTextColor="#727C86"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
+                      secureTextEntry
+                      className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
                     />
                   </View>
+
+                  <Pressable
+                    onPress={handleRegister}
+                    disabled={submitting}
+                    className={`mt-3 h-[60px] items-center justify-center rounded-full border border-[#0B5F59] bg-[#0F766E] shadow-lg ${
+                      submitting ? 'opacity-85' : 'opacity-100 active:scale-[0.98]'
+                    }`}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <View className="w-full flex-row items-center justify-center">
+                        <Text className="text-[17px] font-black text-white">
+                          Initialize Profile
+                        </Text>
+                        <Text className="ml-2.5 text-lg font-extrabold text-white">
+                          👤+
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
                 </View>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-                <View>
-                  <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
-                    Access Secret
-                  </Text>
+      <Modal
+        transparent
+        visible={forgotPasswordVisible}
+        animationType="fade"
+        onRequestClose={closeForgotPasswordModal}
+      >
+        <View className="flex-1 items-center justify-center bg-black/55 px-6">
+          <View className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-lg">
+            <Text className="text-2xl font-black tracking-[-0.8px] text-[#2A333C]">
+              Reset Secret
+            </Text>
 
-                  <TextInput
-                    value={registerPassword}
-                    onChangeText={setRegisterPassword}
-                    placeholder="••••••••"
-                    placeholderTextColor="#727C86"
-                    secureTextEntry
-                    className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
-                  />
-                </View>
+            <Text className="mt-3 text-sm leading-6 text-[#56606A]">
+              Enter your account email and we&apos;ll send you a password reset link.
+            </Text>
 
-                <View>
-                  <Text className="mb-1 ml-1 text-xs font-black uppercase tracking-wider text-on-surface-variant">
-                    Confirm Secret
-                  </Text>
+            <View className="mt-5 gap-2">
+              <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                Email Endpoint
+              </Text>
 
-                  <TextInput
-                    value={registerConfirmPassword}
-                    onChangeText={setRegisterConfirmPassword}
-                    placeholder="••••••••"
-                    placeholderTextColor="#727C86"
-                    secureTextEntry
-                    className="h-14 rounded-xl bg-surface-container-highest px-6 text-on-surface"
-                  />
-                </View>
+              <TextInput
+                value={forgotPasswordEmail}
+                onChangeText={setForgotPasswordEmail}
+                placeholder="dev@codenopoly.io"
+                placeholderTextColor="#727C86"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                className="h-14 rounded-xl bg-[#D9E4EF] px-[18px] text-base text-[#2A333C]"
+              />
+            </View>
+
+            {forgotPasswordLink ? (
+              <View className="mt-4 rounded-2xl bg-[#EEF4FC] p-4">
+                <Text className="text-xs font-extrabold uppercase tracking-[1.2px] text-[#56606A]">
+                  Development Reset Link
+                </Text>
+
+                <Text selectable className="mt-2 text-sm leading-6 text-[#1E6397]">
+                  {forgotPasswordLink}
+                </Text>
 
                 <Pressable
-                  onPress={handleRegister}
-                  disabled={submitting}
-                  className={`h-14 flex-row items-center justify-center gap-2 rounded-full bg-secondary shadow-lg ${
-                    submitting ? 'opacity-60' : 'active:scale-[0.98]'
-                  }`}
+                  onPress={() => {
+                    void Linking.openURL(forgotPasswordLink)
+                  }}
+                  className="mt-4 h-12 items-center justify-center rounded-full bg-[#1F6FA8]"
                 >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF7FC" />
-                  ) : (
-                    <>
-                      <Text className="text-lg font-black text-white">
-                        Initialize Profile
-                      </Text>
-                      <Text className="text-xl font-black text-white">＋</Text>
-                    </>
-                  )}
+                  <Text className="text-sm font-black text-white">
+                    Open Reset Page
+                  </Text>
                 </Pressable>
               </View>
-            )}
+            ) : null}
+
+            <View className="mt-6 flex-row gap-3">
+              <Pressable
+                onPress={closeForgotPasswordModal}
+                disabled={forgotPasswordSubmitting}
+                className="h-14 flex-1 items-center justify-center rounded-full bg-[#D9E4EF]"
+              >
+                <Text className="text-base font-black text-[#2A333C]">
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleForgotPassword}
+                disabled={forgotPasswordSubmitting}
+                className={`h-14 flex-1 items-center justify-center rounded-full bg-[#1F6FA8] ${
+                  forgotPasswordSubmitting ? 'opacity-85' : 'opacity-100'
+                }`}
+              >
+                {forgotPasswordSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text className="text-base font-black text-white">
+                    Send Link
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
   )
 }

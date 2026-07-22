@@ -16,24 +16,30 @@ class PlayerAnswer extends Model
         'selected_answer',
         'is_correct',
         'earned_credits',
+        'feedback',
         'answered_at',
     ];
-    protected function casts():array{
-        return[
+
+    protected function casts(): array
+    {
+        return [
             'is_correct' => 'boolean',
             'answered_at' => 'datetime',
         ];
     }
 
-    public function game(){
+    public function game()
+    {
+        return $this->belongsTo(Game::class);
+    }
+
+    public function user()
+    {
         return $this->belongsTo(User::class);
     }
 
-    public function user(){
-        return $this->belongsTo(User::class);
-    }
-
-    public function question(){
+    public function question()
+    {
         return $this->belongsTo(Question::class);
     }
 }

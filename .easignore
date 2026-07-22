@@ -1,0 +1,7 @@
+backend/
+web/
+mysql_data/
+ollama_data/
+node_modules/
+.git/
+.vscode/

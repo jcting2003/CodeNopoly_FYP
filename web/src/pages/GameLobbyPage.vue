@@ -86,14 +86,25 @@
             </p>
           </div>
 
-          <button
-            type="button"
-            :disabled="players.length < 2 || startingGame"
-            @click="handleStartGame"
-            class="bg-gradient-to-br from-primary to-primary-dim text-on-primary px-10 py-4 rounded-full font-bold font-headline tracking-tight shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {{ startingGame ? 'Starting...' : 'Start Game' }}
-          </button>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              :disabled="cancellingGame || startingGame"
+              @click="cancelModalOpen = true"
+              class=" bg-red-500 text-on-primary px-7 py-4 rounded-full font-bold font-headline tracking-tight shadow-lg shadow-error/20 hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {{ cancellingGame ? 'Cancelling...' : 'Cancel Game Creation' }}
+            </button>
+
+            <button
+              type="button"
+              :disabled="players.length < 2 || startingGame || cancellingGame"
+              @click="handleStartGame"
+              class="bg-gradient-to-br from-primary to-primary-dim text-on-primary px-10 py-4 rounded-full font-bold font-headline tracking-tight shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {{ startingGame ? 'Starting...' : 'Start Game' }}
+            </button>
+          </div>
         </section>
       </div>
 
@@ -181,6 +192,52 @@
         </div>
       </div>
     </main>
+
+    <div
+      v-if="cancelModalOpen"
+      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 px-6 backdrop-blur-sm"
+    >
+      <div class="w-full max-w-lg rounded-[2rem] bg-surface-container-lowest p-8 shadow-[0_24px_80px_rgba(15,23,42,0.35)]">
+        <div class="flex items-start gap-4">
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-error/10 text-error">
+            <span class="material-symbols-outlined text-3xl">warning</span>
+          </div>
+
+          <div class="flex-1">
+            <p class="text-xs font-bold uppercase tracking-[0.2em] text-error mb-2">
+              Confirm Cancellation
+            </p>
+            <h3 class="text-3xl font-bold font-headline text-on-surface tracking-tight">
+              Cancel this game creation?
+            </h3>
+            <p class="mt-3 text-sm leading-7 text-on-surface-variant">
+              This will completely remove the waiting lobby and all joined players will lose access
+              to this game session.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            :disabled="cancellingGame"
+            @click="cancelModalOpen = false"
+            class="px-6 py-3 rounded-full bg-surface-container-high text-on-surface font-bold transition-colors hover:bg-surface-container disabled:opacity-60"
+          >
+            Keep Lobby
+          </button>
+
+          <button
+            type="button"
+            :disabled="cancellingGame"
+            @click="confirmCancelGame"
+            class="px-6 py-3 rounded-full  bg-red-500 text-on-primary font-bold shadow-lg shadow-error/20 transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
+          >
+            {{ cancellingGame ? 'Cancelling...' : 'Yes, Cancel Game' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -193,6 +250,7 @@ import api from '@/services/api'
 import echo from '@/lib/echo'
 import { useAuthStore } from '@/stores/auth'
 import QrcodeVue from 'qrcode.vue'
+
 
 type GameData = {
   id: number
@@ -215,10 +273,11 @@ type RawPlayer = {
 type PlayersResponse =
   | RawPlayer[]
   | {
+      game?: GameData
       players?: RawPlayer[]
     }
 
-type LobbyPlayer = {
+type LobbyPlayer= {
   id: number
   name: string
   status: string
@@ -229,16 +288,20 @@ type StartGameResponse = {
   message?: string
 }
 
-type GameShowResponse = {
-  game: {
-    id: number
-    host_id: number
-    game_code?: string
-    status: string
-    started_at?: string | null
-    ended_at?: string | null
-  }
+type CancelGameResponse = {
+  message?: string
 }
+
+// type GameShowResponse = {
+//   game: {
+//     id: number
+//     host_id: number
+//     game_code?: string
+//     status: string
+//     started_at?: string | null
+//     ended_at?: string | null
+//   }
+// }
 
 type GameStartedEvent = {
   game_id: number
@@ -268,9 +331,13 @@ const gameId = Number(route.params.id)
 const game = ref<GameData | null>(null)
 const players = ref<LobbyPlayer[]>([])
 const startingGame = ref(false)
+const cancellingGame = ref(false)
+const cancelModalOpen = ref(false)
 
 const maxPlayers = 6
 let gameChannel: ReturnType<typeof echo.private> | null = null
+let lobbyRefreshTimer: number | null = null
+let lobbyRefreshInFlight = false
 
 const currentUserId = computed(() => authStore.user?.id ?? null)
 
@@ -322,21 +389,31 @@ const gameStatusText = computed(() => {
 
 const emptySlots = computed(() => Math.max(maxPlayers - players.value.length, 0))
 
-const fetchGame = async () => {
-  const response = await api.get<GameShowResponse>(`/api/games/${gameId}`)
-  const foundGame = response.data.game
+// const fetchGame = async () => {
+//   const response = await api.get<GameShowResponse>(`/api/games/${gameId}`)
+//   const foundGame = response.data.game
 
-  game.value = foundGame
-  sessionStorage.setItem('created_game', JSON.stringify(foundGame))
+//   game.value = foundGame
+//   sessionStorage.setItem('created_game', JSON.stringify(foundGame))
 
-  if (foundGame.status === 'started') {
-    router.push(`/game-board/${gameId}`)
-    return
-  }
-}
+//   if (foundGame.status === 'started') {
+//     router.push(`/game-board/${gameId}`)
+//     return
+//   }
+// }
 
 const fetchPlayers = async () => {
   const response = await api.get<PlayersResponse>(`/api/games/${gameId}/players`)
+
+  if (!Array.isArray(response.data) && response.data.game) {
+    game.value = response.data.game
+    sessionStorage.setItem('created_game', JSON.stringify(response.data.game))
+
+    if (response.data.game.status === 'started') {
+      router.push(`/game-board/${gameId}`)
+      return
+    }
+  }
 
   const rawPlayers = Array.isArray(response.data)
     ? response.data
@@ -361,6 +438,29 @@ const fetchPlayers = async () => {
   })
 }
 
+const refreshLobby = async () => {
+  await fetchPlayers()
+}
+
+const refreshLobbyInBackground = () => {
+  if (lobbyRefreshInFlight) return
+
+  lobbyRefreshInFlight = true
+  void refreshLobby()
+    .catch((error) => {
+      console.error('Failed to refresh lobby:', error)
+    })
+    .finally(() => {
+      lobbyRefreshInFlight = false
+    })
+}
+
+const handleLobbyVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    refreshLobbyInBackground()
+  }
+}
+
 const handleStartGame = async () => {
   if (players.value.length < 2) return
 
@@ -378,10 +478,37 @@ const handleStartGame = async () => {
   }
 }
 
+const confirmCancelGame = async () => {
+  try {
+    cancellingGame.value = true
+    await api.delete<CancelGameResponse>(`/api/games/${gameId}`)
+
+    sessionStorage.removeItem('created_game')
+    cancelModalOpen.value = false
+    router.push('/dashboard')
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error(error.response?.data?.message || 'Failed to cancel game.')
+    } else {
+      console.error('Failed to cancel game.')
+    }
+  } finally {
+    cancellingGame.value = false
+  }
+}
+
 onMounted(async () => {
   try {
-    await fetchGame()
-    await fetchPlayers()
+    await refreshLobby()
+
+    lobbyRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+
+      refreshLobbyInBackground()
+    }, 1000)
+
+    document.addEventListener('visibilitychange', handleLobbyVisibilityChange)
+    window.addEventListener('focus', refreshLobbyInBackground)
 
     gameChannel = echo.private(`game.${gameId}`)
 
@@ -412,6 +539,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (lobbyRefreshTimer !== null) {
+    window.clearInterval(lobbyRefreshTimer)
+    lobbyRefreshTimer = null
+  }
+
+  document.removeEventListener('visibilitychange', handleLobbyVisibilityChange)
+  window.removeEventListener('focus', refreshLobbyInBackground)
+
   if (gameChannel) {
     echo.leave(`game.${gameId}`)
     gameChannel = null

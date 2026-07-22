@@ -1,6 +1,6 @@
 import Echo from 'laravel-echo'
 import PusherModule from 'pusher-js/react-native'
-import api from './api'
+import { backendBaseURL } from './api'
 import { getStoredToken } from '../context/AuthContext'
 
 let echoInstance: Echo<'pusher'> | null = null
@@ -29,7 +29,7 @@ export const getEcho = async () => {
 
   const pusherKey = process.env.EXPO_PUBLIC_PUSHER_APP_KEY
   const pusherCluster = process.env.EXPO_PUBLIC_PUSHER_APP_CLUSTER
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL || api.defaults.baseURL
+  const apiUrl = backendBaseURL
 
   if (!pusherKey || !pusherCluster || !apiUrl) {
     console.log('Missing Echo env values:', {

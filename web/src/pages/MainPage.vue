@@ -4,10 +4,10 @@
   >
     <NavBar />
 
-    <main class="pt-24 pb-12 overflow-hidden">
+    <main class="pb-5 overflow-hidden">
       <!-- Hero Section -->
       <section
-        class="relative px-6 md:px-12 lg:px-24 py-16 md:py-32 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center"
+        class="relative px-6 md:px-12 lg:px-24 pt-16 pb-8 md:pt-32 md:pb-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center"
       >
         <div
           class="absolute inset-0 -z-10 opacity-10 pointer-events-none select-none font-mono text-xs overflow-hidden leading-relaxed p-10"
@@ -30,23 +30,33 @@
             <span class="text-primary">Syntax Mastery.</span>
           </h1>
 
-          <p class="text-xl md:text-2xl text-on-surface-variant max-w-xl font-body leading-relaxed">
-            A high-stakes hybrid experience blending tactile physical boards with digital NFC
-            execution. Build your repository, outsmart rivals, and compile your way to victory.
-          </p>
+          <div class="space-y-4">
+            <p class="text-xl md:text-2xl text-on-surface-variant max-w-xl font-body leading-relaxed">
+              A high-stakes hybrid experience blending tactile physical boards with digital NFC
+              execution. Build your repository, outsmart rivals, and compile your way to victory.
+            </p>
 
-          <div class="flex flex-wrap gap-4 pt-4">
-            <button
-              class="px-8 py-4 rounded-full bg-gradient-to-br from-primary to-primary-dim text-on-primary font-bold text-lg shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
+            <div
+              class="max-w-xl p-5 rounded-xl bg-primary-container/40 border border-primary/20 text-on-primary-container"
             >
-              Initialize Session
-            </button>
+              <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-primary mt-0.5">
+                  info
+                </span>
 
-            <button
-              class="px-8 py-4 rounded-full bg-secondary-container text-on-secondary-container font-bold text-lg hover:bg-secondary-fixed transition-all active:scale-95"
-            >
-              Join Network
-            </button>
+                <div class="space-y-2">
+                  <h2 class="text-sm font-bold uppercase tracking-widest font-label">
+                    Beta Version Notice
+                  </h2>
+
+                  <p class="text-sm md:text-base leading-relaxed text-on-surface-variant font-body">
+                    CodeNopoly is currently in its beta version and is designed for users with
+                    prior programming knowledge. The game includes coding-related questions and
+                    challenges, so users with no coding background may find it difficult to play.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -101,7 +111,7 @@
       </section>
 
       <!-- How It Works -->
-      <section class="px-6 md:px-12 lg:px-24 py-24 space-y-12">
+      <section class="px-6 md:px-12 lg:px-24 pt-10 pb-25 space-y-12">
         <div class="text-center space-y-4 max-w-2xl mx-auto">
           <h2 class="text-4xl font-bold tracking-tight">How the Engine Operates</h2>
           <p class="text-on-surface-variant">
@@ -164,7 +174,7 @@
 
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
-import Footer from '@/components/Footer.vue'
+import Footer from '@/components/AppFooter.vue'
 
 const codeSnippet = `class Player(Logic):
     def __init__(self, nfc_tag):
@@ -173,7 +183,7 @@ const codeSnippet = `class Player(Logic):
         self.syntax_level = 1
 
 def handle_roll(dice_value):
-    # Logic for Pythonopoly Move
+    # Logic for Codenopoly Move
     player.move(dice_value)
     if board.tile[player.pos].is_property:
         player.execute_transaction()`

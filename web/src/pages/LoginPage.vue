@@ -101,7 +101,7 @@
                 <input
                   v-model="loginForm.email"
                   class="w-full h-14 px-6 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/40 font-body transition-all text-on-surface placeholder:text-outline"
-                  placeholder="dev@pythonopoly.io"
+                  placeholder="dev@Codenopoly.io"
                   type="email"
                 />
               </div>
@@ -112,9 +112,13 @@
                     Access Secret
                   </label>
 
-                  <a class="text-xs font-label text-primary hover:underline" href="#">
+                  <button
+                    type="button"
+                    class="text-xs font-label text-primary hover:underline"
+                    @click="openForgotPasswordModal"
+                  >
                     Forgot Secret?
-                  </a>
+                  </button>
                 </div>
 
                 <input
@@ -219,6 +223,90 @@
         </div>
       </div>
     </main>
+
+    <div
+      v-if="forgotPasswordModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    >
+      <div class="w-full max-w-md rounded-3xl bg-surface-container-lowest p-8 shadow-2xl shadow-black/20">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-display font-extrabold tracking-tight text-on-surface">
+              Reset Secret
+            </h2>
+            <p class="mt-2 text-sm font-body leading-6 text-on-surface-variant">
+              Enter your account email and we&apos;ll send you a password reset link.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="text-on-surface-variant transition-colors hover:text-on-surface"
+            @click="closeForgotPasswordModal"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="mt-6 space-y-2">
+          <label class="text-xs font-label font-bold uppercase tracking-wider text-on-surface-variant">
+            Email Endpoint
+          </label>
+
+          <input
+            v-model="forgotPasswordEmail"
+            class="w-full h-14 px-6 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/40 font-body transition-all text-on-surface placeholder:text-outline"
+            placeholder="dev@codenopoly.io"
+            type="email"
+          />
+        </div>
+
+        <p v-if="forgotPasswordSuccess" class="mt-4 text-sm text-green-600 font-medium">
+          {{ forgotPasswordSuccess }}
+        </p>
+
+        <p v-if="forgotPasswordError" class="mt-4 text-sm text-red-600 font-medium">
+          {{ forgotPasswordError }}
+        </p>
+
+        <div v-if="forgotPasswordLink" class="mt-4 rounded-2xl bg-surface-container-high p-4">
+          <p class="text-xs font-label font-bold uppercase tracking-wider text-on-surface-variant">
+            Password Reset Link
+          </p>
+
+          <p class="mt-2 break-all text-sm font-body leading-6 text-primary">
+            {{ forgotPasswordLink }}
+          </p>
+
+          <a
+            :href="forgotPasswordLink"
+            class="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-label font-bold text-on-primary transition-all hover:scale-[1.01]"
+          >
+            Open Reset Page
+          </a>
+        </div>
+
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            class="h-14 flex-1 rounded-full bg-surface-container-high font-label font-bold text-on-surface transition-all hover:scale-[1.01]"
+            :disabled="authStore.loading"
+            @click="closeForgotPasswordModal"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="h-14 flex-1 rounded-full bg-gradient-to-r from-primary to-primary-dim text-on-primary font-label font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.01] disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="authStore.loading"
+            @click="handleForgotPassword"
+          >
+            {{ authStore.loading ? 'Sending...' : 'Send Link' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -232,6 +320,11 @@ const authStore = useAuthStore()
 
 const activeTab = ref<'login' | 'register'>('login')
 const successMessage = ref('')
+const forgotPasswordModalOpen = ref(false)
+const forgotPasswordEmail = ref('')
+const forgotPasswordSuccess = ref('')
+const forgotPasswordError = ref('')
+const forgotPasswordLink = ref('')
 
 const loginForm = reactive({
   email: '',
@@ -251,6 +344,23 @@ const switchTab = (tab: 'login' | 'register') => {
   successMessage.value = ''
 }
 
+const openForgotPasswordModal = () => {
+  forgotPasswordEmail.value = loginForm.email
+  forgotPasswordSuccess.value = ''
+  forgotPasswordError.value = ''
+  forgotPasswordLink.value = ''
+  authStore.clearError()
+  forgotPasswordModalOpen.value = true
+}
+
+const closeForgotPasswordModal = () => {
+  if (authStore.loading) {
+    return
+  }
+
+  forgotPasswordModalOpen.value = false
+}
+
 const handleLogin = async () => {
   authStore.clearError()
   successMessage.value = ''
@@ -260,8 +370,15 @@ const handleLogin = async () => {
       email: loginForm.email,
       password: loginForm.password,
     })
+    console.log('Logged in user:', authStore.user)
+    console.log('User role:', authStore.user?.role)
+    
 
-    router.push('/dashboard')
+    if (authStore.user?.role === 'admin') {
+      router.push('/admin/dashboard')
+    } else {
+      router.push('/dashboard')
+    }
   } catch (error) {
     console.error('Login failed:', error)
   }
@@ -300,6 +417,28 @@ const handleRegister = async () => {
     activeTab.value = 'login'
   } catch (error) {
     console.error('Register failed:', error)
+  }
+}
+
+const handleForgotPassword = async () => {
+  forgotPasswordSuccess.value = ''
+  forgotPasswordError.value = ''
+  authStore.clearError()
+
+  if (!forgotPasswordEmail.value.trim()) {
+    forgotPasswordError.value = 'Please enter your email address.'
+    return
+  }
+
+  try {
+    const response = await authStore.forgotPassword({
+      email: forgotPasswordEmail.value.trim(),
+    })
+
+    forgotPasswordSuccess.value = response.message
+    forgotPasswordLink.value = response.reset_url || ''
+  } catch {
+    forgotPasswordError.value = authStore.error || 'Unable to send reset email.'
   }
 }
 </script>

@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native'
+import { Image } from 'expo-image'
 import { router, useLocalSearchParams } from 'expo-router'
 import api from '../../src/services/api'
 import { useAuth } from '../../src/context/AuthContext'
 import { getEcho } from '../../src/services/echo'
+import { popup } from '../../src/services/popup'
 
 type GameResponse = {
   game: {
@@ -43,7 +44,7 @@ type LobbyPlayer = {
 }
 
 export default function GameLobbyScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, code } = useLocalSearchParams<{ id: string; code?: string }>()
   const { user } = useAuth()
 
   const gameId = Number(id)
@@ -52,8 +53,9 @@ export default function GameLobbyScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [startingGame, setStartingGame] = useState(false)
+  const [cancellingGame, setCancellingGame] = useState(false)
 
-  const [gameCode, setGameCode] = useState('')
+  const [gameCode, setGameCode] = useState(typeof code === 'string' ? code : '')
   const [gameStatus, setGameStatus] = useState('')
   const [hostId, setHostId] = useState<number | null>(null)
   const [players, setPlayers] = useState<LobbyPlayer[]>([])
@@ -79,8 +81,13 @@ export default function GameLobbyScreen() {
     return gameStatus
   }, [gameStatus])
 
+  const joinQrUrl = useMemo(() => {
+    if (!gameCode) return ''
+    return `https://quickchart.io/qr?text=${encodeURIComponent(gameCode)}&size=240`
+  }, [gameCode])
+
   const fetchGame = async () => {
-    const response = await api.get<GameResponse>(`/api/games/${gameId}`)
+    const response = await api.get<GameResponse>(`/games/${gameId}`)
     const foundGame = response.data.game
 
     setGameCode(foundGame.game_code || '')
@@ -138,7 +145,7 @@ export default function GameLobbyScreen() {
   }
 
   const fetchPlayers = async (currentHostId: number | null) => {
-    const response = await api.get<PlayersResponse>(`/api/games/${gameId}/players`)
+    const response = await api.get<PlayersResponse>(`/games/${gameId}/players`)
 
     const rawPlayers = Array.isArray(response.data)
       ? response.data
@@ -149,7 +156,7 @@ export default function GameLobbyScreen() {
 
   const refreshLobby = async (showLoader = false) => {
     if (!gameId || Number.isNaN(gameId)) {
-      Alert.alert('Invalid Game', 'Game ID is invalid.')
+      popup.alert('Invalid Game', 'Game ID is invalid.')
       router.replace('/dashboard')
       return
     }
@@ -164,7 +171,7 @@ export default function GameLobbyScreen() {
       const message =
         error.response?.data?.message || 'Failed to load lobby.'
 
-      Alert.alert('Lobby Error', message)
+      popup.alert('Lobby Error', message)
       router.replace('/dashboard')
     } finally {
       setLoading(false)
@@ -174,14 +181,14 @@ export default function GameLobbyScreen() {
 
   const handleStartGame = async () => {
     if (players.length < 2) {
-      Alert.alert('Not Enough Players', 'Minimum 2 players are required to start.')
+      popup.alert('Not Enough Players', 'Minimum 2 players are required to start.')
       return
     }
 
     try {
       setStartingGame(true)
 
-      await api.post(`/api/games/${gameId}/start`)
+      await api.post(`/games/${gameId}/start`)
 
       router.replace({
         pathname: '/game-session/[id]',
@@ -193,10 +200,44 @@ export default function GameLobbyScreen() {
       const message =
         error.response?.data?.message || 'Failed to start game.'
 
-      Alert.alert('Start Failed', message)
+      popup.alert('Start Failed', message)
     } finally {
       setStartingGame(false)
     }
+  }
+
+  const handleCancelGame = () => {
+    popup.alert(
+      'Cancel Game Creation',
+      'This will completely remove the waiting lobby and all joined players will lose access to this game session.',
+        [
+          {
+            text: 'Keep Game',
+            style: 'cancel',
+          },
+          {
+            text: 'Cancel Game',
+            style: 'destructive',
+            onPress: async () => {
+            try {
+              setCancellingGame(true)
+
+              await api.delete(`/games/${gameId}`)
+
+              popup.alert('Game Cancelled', 'The waiting lobby has been removed.')
+              router.replace('/dashboard')
+            } catch (error: any) {
+              const message =
+                error.response?.data?.message || 'Failed to cancel game.'
+
+              popup.alert('Cancel Failed', message)
+            } finally {
+              setCancellingGame(false)
+            }
+          },
+        },
+      ]
+    )
   }
 
   useEffect(() => {
@@ -226,7 +267,7 @@ export default function GameLobbyScreen() {
       })
 
       channel.listen('.game.ended', () => {
-        Alert.alert('Game Ended', 'This game has ended.')
+        popup.alert('Game Ended', 'This game has ended.')
         router.replace('/dashboard')
       })
     }
@@ -313,6 +354,41 @@ export default function GameLobbyScreen() {
         </Text>
       </View>
 
+      <View className="mb-8 rounded-[2rem] bg-surface-container-lowest p-6 shadow-sm">
+        <Text className="text-xl font-black text-on-surface">
+          Join Game QR
+        </Text>
+
+        <Text className="mt-2 text-sm leading-6 text-on-surface-variant">
+          Other players can scan this QR from the mobile Join Game screen. The QR contains the game code only.
+        </Text>
+
+        <View className="mt-5 items-center rounded-[28px] bg-white p-5">
+          {joinQrUrl ? (
+            <Image
+              source={{ uri: joinQrUrl }}
+              style={{ width: 220, height: 220 }}
+              contentFit="contain"
+            />
+          ) : (
+            <View className="h-[220px] w-[220px] items-center justify-center rounded-[24px] bg-surface-container">
+              <Text className="text-sm font-bold text-on-surface-variant">
+                QR unavailable
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View className="mt-4 rounded-2xl bg-surface-container-low px-4 py-4">
+          <Text className="text-[11px] font-black uppercase tracking-[2px] text-outline">
+            Share This Code
+          </Text>
+          <Text className="mt-2 text-2xl font-black tracking-[0.24em] text-primary">
+            {gameCode || '------'}
+          </Text>
+        </View>
+      </View>
+
       {/* Host-only start section */}
       {isCurrentUserHost && (
         <View className="mb-8 rounded-[2rem] bg-surface-container-high p-6">
@@ -324,21 +400,39 @@ export default function GameLobbyScreen() {
             Minimum 2 players required to initialize.
           </Text>
 
-          <Pressable
-            onPress={handleStartGame}
-            disabled={players.length < 2 || startingGame}
-            className={`mt-5 h-14 items-center justify-center rounded-full bg-primary shadow-lg ${
-              players.length < 2 || startingGame ? 'opacity-60' : 'active:scale-[0.98]'
-            }`}
-          >
-            {startingGame ? (
-              <ActivityIndicator color="#F7F9FF" />
-            ) : (
-              <Text className="text-base font-black text-on-primary">
-                Start Game
-              </Text>
-            )}
-          </Pressable>
+          <View className="mt-5 gap-3">
+            <Pressable
+              onPress={handleCancelGame}
+              disabled={cancellingGame || startingGame}
+              className={`h-14 items-center justify-center rounded-full bg-error ${
+                cancellingGame || startingGame ? 'opacity-60' : 'active:scale-[0.98]'
+              }`}
+            >
+              {cancellingGame ? (
+                <ActivityIndicator color="#F7F9FF" />
+              ) : (
+                <Text className="text-base font-black text-on-primary">
+                  Cancel Game Creation
+                </Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={handleStartGame}
+              disabled={players.length < 2 || startingGame || cancellingGame}
+              className={`h-14 items-center justify-center rounded-full bg-primary shadow-lg ${
+                players.length < 2 || startingGame || cancellingGame ? 'opacity-60' : 'active:scale-[0.98]'
+              }`}
+            >
+              {startingGame ? (
+                <ActivityIndicator color="#F7F9FF" />
+              ) : (
+                <Text className="text-base font-black text-on-primary">
+                  Start Game
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </View>
       )}
 

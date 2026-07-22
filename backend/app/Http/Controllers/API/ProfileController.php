@@ -18,6 +18,7 @@ class ProfileController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'role' => $user->role,
             'profile_photo_url' => $user->profile_photo_path
                 ? asset('storage/' . $user->profile_photo_path)
                 : null,
@@ -42,6 +43,7 @@ class ProfileController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'role' => $user->role,
                 'profile_photo_url' => $user->profile_photo_path
                     ? asset('storage/' . $user->profile_photo_path)
                     : null,
@@ -89,18 +91,26 @@ class ProfileController extends Controller
 
         $highestScore = $endedGamePlayers->max('total_credits') ?? 0;
 
-        $wins = 0;
+        $endedGameIds = $endedGamePlayers
+            ->pluck('game_id')
+            ->unique()
+            ->values();
 
-        foreach ($endedGamePlayers as $gamePlayer) {
-            $topPlayer = GamePlayer::where('game_id', $gamePlayer->game_id)
-                ->orderByDesc('total_credits')
-                ->orderByDesc('credits')
-                ->first();
+        $topPlayersByGameId = GamePlayer::whereIn('game_id', $endedGameIds)
+            ->orderBy('game_id')
+            ->orderByDesc('total_credits')
+            ->orderByDesc('credits')
+            ->get()
+            ->groupBy('game_id')
+            ->map(function ($players) {
+                return $players->first();
+            });
 
-            if ($topPlayer && $topPlayer->user_id === $user->id) {
-                $wins++;
-            }
-        }
+        $wins = $endedGameIds->filter(function ($gameId) use ($topPlayersByGameId, $user) {
+            $topPlayer = $topPlayersByGameId->get($gameId);
+
+            return $topPlayer && $topPlayer->user_id === $user->id;
+        })->count();
 
         $recentGames = GamePlayer::with('game')
             ->where('user_id', $user->id)
