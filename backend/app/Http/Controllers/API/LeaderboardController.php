@@ -13,7 +13,7 @@ class LeaderboardController extends Controller
     {
         $user = $request->user();
 
-        $game = Game::with('currentTurnUser')->find($id);
+        $game = Game::find($id);
 
         if (! $game) {
             return response()->json([
@@ -47,8 +47,6 @@ class LeaderboardController extends Controller
                 'total_credits' => $player->total_credits,
                 'position' => $player->position,
                 'last_property_bought_turn' => $player->last_property_bought_turn,
-                'last_question_answered_turn' => $player->last_question_answered_turn,
-                'last_card_scanned_turn' => $player->last_card_scanned_turn,
             ];
         });
 
@@ -56,10 +54,6 @@ class LeaderboardController extends Controller
             'game_id' => $game->id,
             'game_code' => $game->game_code,
             'status' => $game->status,
-            'turn_number' => $game->turn_number,
-            'current_turn_user_id' => $game->current_turn_user_id,
-            'current_turn_user_name' => $game->currentTurnUser?->name,
-            'last_dice_roll' => $game->last_dice_roll,
             'leaderboard' => $leaderboard,
         ]);
     }

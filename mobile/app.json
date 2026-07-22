@@ -9,12 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NFCReaderUsageDescription": "This app uses NFC to scan Codenopoly board tiles and cards.",
-        "ITSAppUsesNonExemptEncryption": false
-      },
-      "bundleIdentifier": "com.jcting2003.codenopoly"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -24,11 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.NFC"
-      ],
-      "package": "com.jcwt.mobile"
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
@@ -49,17 +40,11 @@
           }
         }
       ],
-      "expo-secure-store",
-      "react-native-nfc-manager"
+      "expo-secure-store"
     ],
     "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "50891695-2b95-421b-8cd9-9a82a1e62091"
-      }
+      "typedRoutes": true,
+      "reactCompiler": true
     }
   }
 }

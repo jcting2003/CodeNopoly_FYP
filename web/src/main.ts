@@ -25,5 +25,6 @@ app.use(Toast, {
 
 const authStore = useAuthStore()
 
-app.mount('#app')
-void authStore.fetchUser()
+authStore.fetchUser().finally(() => {
+  app.mount('#app')
+})

@@ -1,112 +1,48 @@
-# CodeNopoly Web Frontend
+# web
 
-## Overview
+This template should help get you started developing with Vue 3 in Vite.
 
-This folder contains the Vue 3 + Vite web frontend for CodeNopoly. It connects to the Laravel backend for authentication, gameplay, dashboard, admin, and realtime broadcast features.
+## Recommended IDE Setup
 
-## Stack
+[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
 
-- Vue `3.5.31`
-- Vite `8`
-- TypeScript
-- Pinia
-- Axios
-- Laravel Echo
-- Pusher JS
-- Tailwind CSS
+## Recommended Browser Setup
 
-## Node.js Requirement
+- Chromium-based browsers (Chrome, Edge, Brave, etc.):
+  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
+  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
+- Firefox:
+  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
+  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
 
-The package declares:
+## Type Support for `.vue` Imports in TS
 
-```text
-^20.19.0 || >=22.12.0
-```
+TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
 
-Use Node 20+ for best compatibility.
+## Customize configuration
 
-## Environment Variables
+See [Vite Configuration Reference](https://vite.dev/config/).
 
-The project expects a private `web/.env` file. A safe example is provided in `web/.env.example`.
+## Project Setup
 
-Detected env variables used by the code:
-
-- `VITE_API_BASE_URL`
-- `VITE_PUSHER_APP_KEY`
-- `VITE_PUSHER_APP_CLUSTER`
-
-## Install Dependencies
-
-From `web`:
-
-```powershell
+```sh
 npm install
 ```
 
-## Start Development Server
+### Compile and Hot-Reload for Development
 
-From `web`:
-
-```powershell
+```sh
 npm run dev
 ```
 
-Default URL:
+### Type-Check, Compile and Minify for Production
 
-```text
-http://localhost:5173
-```
-
-The Vite config binds to `localhost` port `5173` with strict port enforcement.
-
-## Production Build
-
-```powershell
+```sh
 npm run build
 ```
 
-Current validation result in this workspace:
+### Lint with [ESLint](https://eslint.org/)
 
-- `npm run build`: passed
-
-## Linting
-
-```powershell
+```sh
 npm run lint
 ```
-
-Current validation result in this workspace:
-
-- `npm run lint`: failed because `web/src/stores/auth.ts` contains an unused `UserResponse` type
-
-No code change was applied to silence that warning/error because the submission brief asked to avoid unnecessary source changes.
-
-## Docker
-
-This frontend is also included in the root Docker Compose stack.
-
-Relevant container details:
-
-- Container: `codenopoly-frontend`
-- Host port: `5173`
-- Dockerfile base image: `node:20-alpine`
-
-Start from the project root:
-
-```powershell
-docker compose up -d frontend
-```
-
-## Backend Connection
-
-The web client uses `VITE_API_BASE_URL` and falls back to:
-
-```text
-http://localhost:8000
-```
-
-Realtime auth uses:
-
-- `/broadcasting/auth`
-
-The web frontend requires matching Pusher credentials in both backend and web env files for live events to work.

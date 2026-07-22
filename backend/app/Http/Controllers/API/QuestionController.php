@@ -11,22 +11,19 @@ use App\Models\PlayerAnswer;
 use Illuminate\Http\Request;
 use App\Models\Card;
 use App\Models\Game;
-use App\Services\QwenAnswerValidationService;
 
 
 class QuestionController extends Controller
 {
-    private const GO_REWARD = 100;
-
     public function scanTile(Request $request, int $id)
     {
         $fields = $request->validate([
-            'nfc_value' => 'required|string',
+            'nfc_value' => 'required|string|exists:tiles,nfc_value',
         ]);
 
         $user = $request->user();
 
-        $game = \App\Models\Game::find($id);
+                $game = \App\Models\Game::find($id);
 
         if (! $game) {
             return response()->json([
@@ -62,20 +59,14 @@ class QuestionController extends Controller
             ], 404);
         }
 
-        $scanValue = trim($fields['nfc_value']);
-
         $tile = Tile::with('questions')
-            ->where('nfc_value', $scanValue)
-            ->when(is_numeric($scanValue), function ($query) use ($scanValue) {
-                $query->orWhere('tile_number', (int) $scanValue);
-            })
+            ->where('nfc_value', $fields['nfc_value'])
             ->first();
 
         if (! $tile) {
             return response()->json([
-                'message' => 'Scanned tile QR/NFC value was not found',
-                'accepted_examples' => ['7', 'NFC_TILE_07'],
-            ], 422);
+                'message' => 'Tile not found',
+            ], 404);
         }
 
         if ((int) $gamePlayer->position !== (int) $tile->tile_number) {
@@ -97,22 +88,24 @@ class QuestionController extends Controller
                 ],
             ], 422);
         }
-        
 
-		$answeredQuestionIds = PlayerAnswer::where('game_id', $id)
-			->where('user_id', $user->id)
-			->pluck('question_id');
+        $question = $tile->questions()->inRandomOrder()->first();
 
-		$availableDifficulties = $tile->questions()
-			->whereNotIn('id', $answeredQuestionIds)
-			->select('difficulty')
-			->distinct()
-			->pluck('difficulty')
-			->values();
+        if (! $question) {
+            return response()->json([
+                'message' => 'No question found for this tile',
+            ], 404);
+        }
+
+        $availableDifficulties = $tile->questions()
+            ->select('difficulty')
+            ->distinct()
+            ->pluck('difficulty')
+            ->values();
 
         if ($availableDifficulties->isEmpty()) {
             return response()->json([
-                'message' => 'You have already answered all available questions for this tile.',
+                'message' => 'No question found for this tile',
             ], 404);
         }
 
@@ -130,7 +123,7 @@ class QuestionController extends Controller
         ]);
     }
 
-    public function getQuestionByDifficulty(Request $request, int $id, int $tileId)
+        public function getQuestionByDifficulty(Request $request, int $id, int $tileId)
     {
         $fields = $request->validate([
             'difficulty' => 'required|string|in:easy,intermediate,hard',
@@ -188,21 +181,27 @@ class QuestionController extends Controller
             ], 422);
         }
 
-        $answeredQuestionIds = PlayerAnswer::where('game_id', $id)
-			->where('user_id', $user->id)
-			->pluck('question_id');
+        $question = $tile->questions()
+            ->where('difficulty', $fields['difficulty'])
+            ->inRandomOrder()
+            ->first();
 
-		$question = $tile->questions()
-			->where('difficulty', $fields['difficulty'])
-			->whereNotIn('id', $answeredQuestionIds)
-			->inRandomOrder()
-			->first();
+        if (! $question) {
+            return response()->json([
+                'message' => 'No question found for this difficulty',
+            ], 404);
+        }
 
-		if (! $question) {
-			return response()->json([
-				'message' => 'You have already answered all available questions for this tile and difficulty.',
-			], 404);
-		}
+        $alreadyAnswered = PlayerAnswer::where('game_id', $id)
+            ->where('user_id', $user->id)
+            ->where('question_id', $question->id)
+            ->exists();
+
+        if ($alreadyAnswered) {
+            return response()->json([
+                'message' => 'You have already answered this question',
+            ], 422);
+        }
 
         return response()->json([
             'message' => 'Question retrieved successfully',
@@ -216,92 +215,21 @@ class QuestionController extends Controller
             ],
             'question' => [
                 'id' => $question->id,
-                'question_type' => $question->question_type,
                 'question_text' => $question->question_text,
-
                 'option_a' => $question->option_a,
                 'option_b' => $question->option_b,
                 'option_c' => $question->option_c,
                 'option_d' => $question->option_d,
-
                 'credits' => $question->credits,
                 'difficulty' => $question->difficulty,
             ],
         ]);
     }
 
-    public function getHint(Request $request, int $id, int $questionId)
-    {
-        $user = $request->user();
-
-        $game = Game::find($id);
-
-        if (! $game) {
-            return response()->json([
-                'message' => 'Game not found',
-            ], 404);
-        }
-
-        if ($game->status !== 'started') {
-            return response()->json([
-                'message' => 'Game has not started yet',
-            ], 400);
-        }
-
-        if ($game->current_turn_user_id !== $user->id) {
-            return response()->json([
-                'message' => 'It is not your turn',
-            ], 403);
-        }
-
-        if ($game->last_dice_roll === null) {
-            return response()->json([
-                'message' => 'You must roll the dice before requesting a hint',
-            ], 422);
-        }
-
-        $question = Question::with('tile')->find($questionId);
-
-        if (! $question) {
-            return response()->json([
-                'message' => 'Question not found',
-            ], 404);
-        }
-
-        $gamePlayer = GamePlayer::where('game_id', $id)
-            ->where('user_id', $user->id)
-            ->first();
-
-        if (! $gamePlayer) {
-            return response()->json([
-                'message' => 'Player is not part of this game',
-            ], 404);
-        }
-
-        if (! $question->tile || (int) $question->tile->tile_number !== (int) $gamePlayer->position) {
-            return response()->json([
-                'message' => 'Question does not match the player current tile',
-            ], 422);
-        }
-
-        if ($question->question_type !== 'structured') {
-            return response()->json([
-                'hint' => 'Read each option carefully and eliminate answers that do not match the Python concept.',
-            ]);
-        }
-
-        $qwenService = app(QwenAnswerValidationService::class);
-        $result = $qwenService->generateHint($question);
-
-        return response()->json([
-            'hint' => $result['hint'],
-        ]);
-    }
-
     public function submitAnswer(Request $request, int $id, int $questionId)
     {
         $fields = $request->validate([
-            'answer' => 'required|string',
+            'selected_answer' => 'required|string|in:A,B,C,D,a,b,c,d',
         ]);
 
         $user = $request->user();
@@ -367,43 +295,11 @@ class QuestionController extends Controller
             ], 422);
         }
 
-        $studentAnswer = trim($fields['answer']);
+        $selectedAnswer = strtoupper(trim($fields['selected_answer']));
+        $correctAnswer = strtoupper(trim($question->correct_answer));
 
-        if ($question->question_type === 'mcq') {
-            $selectedAnswer = strtoupper($studentAnswer);
-
-            if (! in_array($selectedAnswer, ['A', 'B', 'C', 'D'])) {
-                return response()->json([
-                    'message' => 'Invalid MCQ answer.',
-                ], 422);
-            }
-
-            $correctAnswer = strtoupper(trim($question->correct_answer));
-            $isCorrect = $selectedAnswer === $correctAnswer;
-            $earnedCredits = $isCorrect ? $question->credits : 0;
-
-            $feedback = $isCorrect
-                ? 'Correct answer!'
-                : 'Incorrect answer.';
-        } else {
-            $selectedAnswer = $studentAnswer;
-
-            $qwenService = app(QwenAnswerValidationService::class);
-            $aiResult = $qwenService->validateAnswer($question, $studentAnswer);
-
-            if (($aiResult['status'] ?? 'ok') !== 'ok') {
-                return response()->json([
-                    'message' => 'Answer validation is temporarily unavailable',
-                    'feedback' => $aiResult['feedback'] ?? 'AI validation is currently unavailable.',
-                ], 503);
-            }
-
-            $isCorrect = (bool) $aiResult['is_correct'];
-
-            $earnedCredits = $isCorrect ? (int) $question->credits : 0;
-
-            $feedback = $aiResult['feedback'] ?? 'Answer checked by AI.';
-        }
+        $isCorrect = $selectedAnswer === $correctAnswer;
+        $earnedCredits = $isCorrect ? $question->credits : 0;
 
         PlayerAnswer::create([
             'game_id' => $id,
@@ -412,17 +308,14 @@ class QuestionController extends Controller
             'selected_answer' => $selectedAnswer,
             'is_correct' => $isCorrect,
             'earned_credits' => $earnedCredits,
-            'feedback' => $feedback,
             'answered_at' => now(),
         ]);
 
         if ($isCorrect) {
             $gamePlayer->credits = ($gamePlayer->credits ?? 0) + $earnedCredits;
             $gamePlayer->total_credits = ($gamePlayer->total_credits ?? 0) + $earnedCredits;
+            $gamePlayer->save();
         }
-
-        $gamePlayer->last_question_answered_turn = $game->turn_number;
-        $gamePlayer->save();
 
         event(new LeaderboardUpdated(
             $id,
@@ -435,7 +328,6 @@ class QuestionController extends Controller
             'earned_credits' => $earnedCredits,
             'current_credits' => $gamePlayer->credits,
             'total_credits' => $gamePlayer->total_credits,
-            'feedback' => $feedback,
         ]);
     }
 
@@ -481,15 +373,6 @@ class QuestionController extends Controller
             return response()->json([
                 'message' => 'Player not found in this game',
             ], 404);
-        }
-
-        if (
-            $gamePlayer->last_card_scanned_turn !== null &&
-            (int) $gamePlayer->last_card_scanned_turn === (int) $game->turn_number
-        ) {
-            return response()->json([
-                'message' => 'You have already drawn a card this turn',
-            ], 422);
         }
 
         $tile = Tile::where('tile_number', $gamePlayer->position)->first();
@@ -541,53 +424,31 @@ class QuestionController extends Controller
 
             $resultMessage = 'Credits deducted successfully';
         } elseif ($card->effect_type === 'move_forward') {
-            if ($card->effect_value === null) {
-                return response()->json([
-                    'message' => 'Card effect value is missing',
-                ], 422);
-            }
+            $newPosition = ($gamePlayer->position + $card->effect_value) % 40;
+            $gamePlayer->position = $newPosition;
+            $gamePlayer->save();
 
-            $moveResult = $this->movePlayer(
-                $gamePlayer,
-                (int) $gamePlayer->position + (int) $card->effect_value
-            );
-
-            $resultMessage = $moveResult['passed_go']
-                ? 'Player moved forward and collected GO reward'
-                : 'Player moved forward';
+            $resultMessage = 'Player moved forward';
         } elseif ($card->effect_type === 'move_backward') {
-            if ($card->effect_value === null) {
-                return response()->json([
-                    'message' => 'Card effect value is missing',
-                ], 422);
+            $newPosition = $gamePlayer->position - $card->effect_value;
+
+            while ($newPosition < 0) {
+                $newPosition += 40;
             }
 
-            $moveResult = $this->movePlayer(
-                $gamePlayer,
-                (int) $gamePlayer->position - (int) $card->effect_value,
-                false
-            );
+            $gamePlayer->position = $newPosition;
+            $gamePlayer->save();
 
             $resultMessage = 'Player moved backward';
         } elseif ($card->effect_type === 'move_to_tile') {
-            if ($card->target_tile_number === null) {
-                return response()->json([
-                    'message' => 'Card target tile number is missing',
-                ], 422);
-            }
+            $gamePlayer->position = $card->target_tile_number;
+            $gamePlayer->save();
 
-            $moveResult = $this->movePlayer(
-                $gamePlayer,
-                (int) $card->target_tile_number
-            );
-
-            $resultMessage = $moveResult['passed_go']
-                ? 'Player moved to target tile and collected GO reward'
-                : 'Player moved to target tile';
+            $resultMessage = 'Player moved to target tile';
         } elseif ($card->effect_type === 'move_to_go') {
             $gamePlayer->position = 0;
-            $gamePlayer->credits += self::GO_REWARD;
-			$gamePlayer->total_credits += self::GO_REWARD;
+            $gamePlayer->credits += 200;
+            $gamePlayer->total_credits += 200;
             $gamePlayer->save();
 
             $resultMessage = 'Player moved to GO and collected reward';
@@ -596,14 +457,6 @@ class QuestionController extends Controller
                 'message' => 'Unsupported card effect type',
             ], 422);
         }
-
-        $gamePlayer->last_card_scanned_turn = $game->turn_number;
-        $gamePlayer->save();
-
-		event(new LeaderboardUpdated(
-			$id,
-			$this->buildLeaderboardPayload($id)
-		));
 
         return response()->json([
             'message' => 'Card scanned successfully',
@@ -626,46 +479,7 @@ class QuestionController extends Controller
         ]);
     }
 
-    private function movePlayer(GamePlayer $gamePlayer, int $newPosition, bool $collectGo = true): array
-	{
-		$oldPosition = (int) ($gamePlayer->position ?? 0);
-
-		$newPosition = $newPosition % 40;
-
-		if ($newPosition < 0) {
-			$newPosition += 40;
-		}
-
-		$passedGo = $collectGo && $newPosition < $oldPosition;
-
-		if ($passedGo) {
-			$gamePlayer->credits += self::GO_REWARD;
-			$gamePlayer->total_credits += self::GO_REWARD;
-		}
-
-		$gamePlayer->position = $newPosition;
-
-		$sentToJail = false;
-
-		// Go To Jail tile
-		if ($newPosition === 30) {
-			$gamePlayer->position = 10;
-			$gamePlayer->skip_turns = 1;
-			$sentToJail = true;
-		}
-
-		$gamePlayer->save();
-
-		return [
-			'old_position' => $oldPosition,
-			'new_position' => $gamePlayer->position,
-			'passed_go' => $passedGo,
-			'go_reward' => $passedGo ? self::GO_REWARD : 0,
-			'sent_to_jail' => $sentToJail,
-		];
-	}
-
-    protected function buildLeaderboardPayload(int $gameId): array
+        protected function buildLeaderboardPayload(int $gameId): array
     {
         return GamePlayer::with('user')
             ->where('game_id', $gameId)
@@ -681,8 +495,6 @@ class QuestionController extends Controller
                     'credits' => $player->credits,
                     'total_credits' => $player->total_credits,
                     'position' => $player->position,
-                    'last_question_answered_turn' => $player->last_question_answered_turn,
-                    'last_card_scanned_turn' => $player->last_card_scanned_turn,
                 ];
             })
             ->toArray();

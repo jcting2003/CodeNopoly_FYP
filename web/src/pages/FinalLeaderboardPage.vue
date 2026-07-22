@@ -19,7 +19,7 @@
           </h1>
 
           <p class="text-on-surface-variant text-lg font-medium">
-            Final ranking and results for this Codenopoly session.
+            Final ranking and results for this Pythonopoly session.
           </p>
         </div>
 

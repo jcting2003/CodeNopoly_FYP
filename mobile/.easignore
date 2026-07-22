@@ -1,7 +1,0 @@
-../backend/
-../web/
-node_modules/
-android/
-ios/
-.expo/
-dist/

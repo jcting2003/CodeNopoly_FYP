@@ -2,21 +2,18 @@
 
 namespace Database\Seeders;
 
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    public function run(): void
+    /**
+     * Seed the application's database.
+     *
+     * @return void
+     */
+    public function run()
     {
-        if (file_exists(base_path('../codenopoly.sql'))) {
-            $this->call(SqlSnapshotSeeder::class);
-            return;
-        }
-
-        $this->call(BoardSeeder::class);
-
-        if (app()->environment('local', 'testing')) {
-            $this->call(AdminUserSeeder::class);
-        }
+        // \App\Models\User::factory(10)->create();
     }
 }

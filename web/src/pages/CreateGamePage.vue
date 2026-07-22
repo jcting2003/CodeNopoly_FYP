@@ -2,17 +2,6 @@
   <div class="min-h-screen bg-background text-on-surface flex flex-col">
     <main class="flex-1 flex items-center justify-center px-6 py-10">
       <div class="w-full max-w-xl text-center">
-        <div class="mb-6 flex justify-start">
-          <button
-            type="button"
-            @click="goToDashboard"
-            class="inline-flex items-center gap-2 rounded-full bg-surface-container-low shadow-md px-5 py-3 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container"
-          >
-            <span class="material-symbols-outlined text-base">arrow_back</span>
-            Back
-          </button>
-        </div>
-
         <p
           class="font-headline uppercase tracking-[0.2em] text-primary font-bold text-xs mb-4"
         >
@@ -20,7 +9,7 @@
         </p>
 
         <h1 class="font-headline text-5xl md:text-6xl font-bold tracking-tight mb-10">
-          CodeNopoly
+          Pythonopoly
         </h1>
 
         <div
@@ -50,25 +39,6 @@
             <p v-if="successMessage" class="text-sm text-green-600 font-medium mb-4">
               {{ successMessage }}
             </p>
-
-            <label
-              class="w-full max-w-md mb-6 flex items-start gap-3 rounded-2xl bg-surface-container-low px-5 py-4 text-left cursor-pointer"
-            >
-              <input
-                v-model="joinAsPlayer"
-                type="checkbox"
-                class="mt-1 h-5 w-5 accent-primary"
-              />
-
-              <span>
-                <span class="block font-label font-bold text-on-surface">
-                  Join as player
-                </span>
-                <span class="block text-sm text-on-surface-variant mt-1">
-                  Enable this only if the host also wants to participate. For lecturer-hosted sessions, leave this unchecked.
-                </span>
-              </span>
-            </label>
 
             <button
               type="button"
@@ -125,7 +95,6 @@ const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const createdGame = ref<CreatedGame | null>(null)
-  const joinAsPlayer = ref(false)
 
 const handleCreateGame = async () => {
   errorMessage.value = ''
@@ -135,7 +104,7 @@ const handleCreateGame = async () => {
   try {
     loading.value = true
 
-    const data = await createGame(joinAsPlayer.value)
+    const data = await createGame()
 
     successMessage.value = data.message || 'Game created successfully.'
     createdGame.value = data.game

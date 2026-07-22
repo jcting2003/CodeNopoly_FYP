@@ -1,221 +1,64 @@
-# CodeNopoly Backend
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
 
-## Overview
+<p align="center">
+<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
-This folder contains the Laravel backend API for CodeNopoly. It provides authentication, game logic, leaderboard updates, QR/NFC tile handling, Pusher broadcasting, and Ollama/Qwen-backed hint and structured-answer validation.
+## About Laravel
 
-## Stack
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-- Laravel `9.52.21`
-- PHP `^8.0` in `composer.json`
-- MySQL
-- Laravel Sanctum
-- Pusher
-- Ollama + Qwen
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
-## Important Files
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
-- `composer.json`
-- `composer.lock`
-- `Dockerfile`
-- `docker/nginx.conf`
-- `.env`
-- `.env.example`
-- `routes/api.php`
-- `routes/channels.php`
+## Learning Laravel
 
-## Environment Setup
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
 
-Do not overwrite a working `.env`.
+If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
 
-If you need a new local setup, copy:
+## Laravel Sponsors
 
-```powershell
-Copy-Item .env.example .env
-```
+We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
 
-Then fill in private values manually.
+### Premium Partners
 
-Key backend env groups:
+- **[Vehikl](https://vehikl.com/)**
+- **[Tighten Co.](https://tighten.co)**
+- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
+- **[64 Robots](https://64robots.com)**
+- **[Cubet Techno Labs](https://cubettech.com)**
+- **[Cyber-Duck](https://cyber-duck.co.uk)**
+- **[Many](https://www.many.co.uk)**
+- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
+- **[DevSquad](https://devsquad.com)**
+- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
+- **[OP.GG](https://op.gg)**
+- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
+- **[Lendio](https://lendio.com)**
 
-- App: `APP_NAME`, `APP_ENV`, `APP_KEY`, `APP_DEBUG`, `APP_URL`, `FRONTEND_URL`
-- Session/Sanctum: `SESSION_DOMAIN`, `SESSION_SECURE_COOKIE`, `SANCTUM_STATEFUL_DOMAINS`
-- Database: `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
-- Broadcasting: `BROADCAST_DRIVER`, `PUSHER_APP_ID`, `PUSHER_APP_KEY`, `PUSHER_APP_SECRET`, `PUSHER_APP_CLUSTER`
-- Ollama: `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_CONNECT_TIMEOUT`, `OLLAMA_VALIDATION_TIMEOUT`, `OLLAMA_HINT_TIMEOUT`
-- Optional admin seeder input: `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+## Contributing
 
-## Composer Installation
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
-From `backend`:
+## Code of Conduct
 
-```powershell
-composer install
-```
+In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
 
-## Docker Usage
+## Security Vulnerabilities
 
-From the project root:
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
-```powershell
-docker compose up -d mysql backend ollama
-```
+## License
 
-Backend container details:
-
-- Container: `codenopoly-backend`
-- Exposed host port: `8000`
-- Runtime stack: PHP-FPM + Nginx
-
-Useful commands:
-
-```powershell
-docker exec -it codenopoly-backend php artisan about
-docker exec -it codenopoly-backend php artisan route:list
-docker exec -it codenopoly-backend php artisan test
-docker logs --tail 100 codenopoly-backend
-```
-
-## Running Locally Without Docker
-
-From `backend`:
-
-```powershell
-composer install
-php artisan config:clear
-php artisan migrate
-php artisan serve --host=localhost --port=8000
-```
-
-## MySQL Connection
-
-### Inside Docker
-
-Use the backend env values intended for containers:
-
-- `DB_HOST=mysql`
-- `DB_PORT=3306`
-
-### Host Machine Access
-
-Docker Compose exposes MySQL on:
-
-- Host: `localhost`
-- Port: `3307`
-
-## Database Initialization
-
-Prepared SQL import:
-
-```powershell
-docker exec -i codenopoly-mysql mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS codenopoly;"
-Get-Content ..\codenopoly.sql | docker exec -i codenopoly-mysql mysql -u root -proot codenopoly
-docker exec -it codenopoly-backend php artisan migrate
-```
-
-Migration/seeder setup:
-
-```powershell
-php artisan migrate
-php artisan db:seed
-```
-
-Current seeding behavior:
-
-- If `../codenopoly.sql` exists, `DatabaseSeeder` calls `SqlSnapshotSeeder` and imports the main snapshot-backed app tables from the SQL dump.
-- If the SQL file is missing, the code falls back to `BoardSeeder` and optional local/testing admin seeding.
-
-Seeder classes available:
-
-- `DatabaseSeeder`
-- `SqlSnapshotSeeder`
-- `BoardSeeder`
-- `AdminUserSeeder`
-
-Snapshot-backed tables currently mirrored from `codenopoly.sql`:
-
-- `tiles`
-- `users`
-- `games`
-- `cards`
-- `properties`
-- `questions`
-- `game_players`
-- `game_properties`
-- `player_answers`
-
-## Storage Link
-
-Required for public profile photo access:
-
-```powershell
-php artisan storage:link
-```
-
-## Cache Clearing
-
-```powershell
-php artisan config:clear
-php artisan cache:clear
-php artisan route:clear
-php artisan view:clear
-```
-
-## Broadcasting and Queue Notes
-
-- Broadcast auth route is enabled in `BroadcastServiceProvider`
-- Game channel authorization is defined in `routes/channels.php`
-- Realtime features depend on valid Pusher credentials
-- Queue driver currently defaults to sync/local execution via env/config
-
-## Pusher Configuration
-
-Backend broadcasting uses the Pusher connection in `config/broadcasting.php`.
-
-Required env vars:
-
-- `BROADCAST_DRIVER=pusher`
-- `PUSHER_APP_ID`
-- `PUSHER_APP_KEY`
-- `PUSHER_APP_SECRET`
-- `PUSHER_APP_CLUSTER`
-
-## Ollama Configuration
-
-Backend AI integration is configured through `config/services.php`.
-
-Required env vars:
-
-- `OLLAMA_BASE_URL`
-- `OLLAMA_MODEL`
-- `OLLAMA_CONNECT_TIMEOUT`
-- `OLLAMA_VALIDATION_TIMEOUT`
-- `OLLAMA_HINT_TIMEOUT`
-
-Model used by the current code:
-
-```text
-qwen2.5-coder:1.5b
-```
-
-Pull it in Docker if needed:
-
-```powershell
-docker exec -it codenopoly-ollama ollama pull qwen2.5-coder:1.5b
-```
-
-## Tests
-
-Validated commands:
-
-```powershell
-php artisan about
-php artisan route:list
-php artisan test
-```
-
-Current validation result in this workspace:
-
-- `php artisan test`: passed
-
-See the root readiness report for the latest recorded results.
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
